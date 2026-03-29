@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Админка — {{ block.key }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+  <div>
+    <div class="text-secondary small">Блок</div>
+    <h1 class="h4 mb-0 font-monospace">{{ block.key }}</h1>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_content_list') }}">Назад</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('index') }}#{{ block.key }}" target="_blank">Сайт</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin_content_save', key=block.key) }}">
+          <div class="mb-3">
+            <label class="form-label">Заголовок</label>
+            <input class="form-control" name="title" value="{{ block.title }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Текст / HTML</label>
+            <textarea class="form-control font-monospace" name="body" rows="14">{{ block.body }}</textarea>
+          </div>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="fw-semibold">Предпросмотр</div>
+          <div class="text-secondary small">рендерится как HTML</div>
+        </div>
+        <div class="content-body border rounded-3 p-3 bg-white">{{ block.body|safe }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

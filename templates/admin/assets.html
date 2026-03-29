@@ -1,0 +1,287 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Админка — Файлы{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h1 class="h4 mb-3">Загрузка файлов</h1>
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-image" data-bs-toggle="tab" data-bs-target="#pane-image" type="button" role="tab" aria-controls="pane-image" aria-selected="true">Изображения</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-doc" data-bs-toggle="tab" data-bs-target="#pane-doc" type="button" role="tab" aria-controls="pane-doc" aria-selected="false">Документы</button>
+          </li>
+        </ul>
+
+        <div class="tab-content pt-3">
+          <div class="tab-pane fade show active" id="pane-image" role="tabpanel" aria-labelledby="tab-image" tabindex="0">
+            <div class="text-secondary small mb-3">
+              Изображения привязываются к слотам и заменяют друг друга при повторной загрузке в тот же слот.
+            </div>
+            <div class="alert alert-info py-2 mb-3">
+              <div class="fw-semibold">Галерея баннеров HERO</div>
+              <div class="small">
+                Загрузите 1–5 изображений в слоты: <span class="font-monospace">hero_image</span>, <span class="font-monospace">hero_image_2</span>, <span class="font-monospace">hero_image_3</span>, <span class="font-monospace">hero_image_4</span>, <span class="font-monospace">hero_image_5</span>.
+                Порядок слайдов соответствует номеру слота.
+              </div>
+            </div>
+
+            <div class="border rounded-3 p-3 bg-white mb-3">
+              <div class="fw-semibold mb-2">Быстрые слоты</div>
+              <div class="d-flex flex-wrap gap-2">
+                {% set slots = ["site_logo", "site_favicon", "hero_image", "hero_image_2", "hero_image_3", "hero_image_4", "hero_image_5", "registry_image", "product_image", "features_image"] %}
+                {% for s in slots %}
+                  {% set found = namespace(asset=None) %}
+                  {% for a in assets %}
+                    {% if a.kind == "image" and a.slot_key == s %}
+                      {% set found.asset = a %}
+                    {% endif %}
+                  {% endfor %}
+                  <div class="border rounded-3 px-2 py-2 d-flex align-items-start gap-2" style="min-width: 240px;">
+                    <div class="rounded-2 border bg-light d-flex align-items-center justify-content-center" style="width: 42px; height: 42px; overflow: hidden;">
+                      {% if found.asset %}
+                        <img src="{{ url_for('uploads', filename=found.asset.stored_filename) }}" alt="{{ s }}" style="width: 100%; height: 100%; object-fit: cover;">
+                      {% else %}
+                        <span class="text-secondary small">—</span>
+                      {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="font-monospace small">{{ s }}</div>
+                      <div class="text-secondary small">{% if found.asset %}загружено{% else %}нет файла{% endif %}</div>
+                      <div class="text-secondary small">
+                        {% if s == "site_logo" %}
+                          Реком.: SVG/PNG, ~256×256 (квадрат)
+                        {% elif s == "site_favicon" %}
+                          Реком.: ICO 32×32 или PNG 32×32
+                        {% elif s == "hero_image" %}
+                          Реком.: JPG/WEBP ≥1920px, до ~1–2 МБ
+                        {% elif s == "hero_image_2" %}
+                          Реком.: JPG/WEBP ≥1920px, до ~1–2 МБ
+                        {% elif s == "hero_image_3" %}
+                          Реком.: JPG/WEBP ≥1920px, до ~1–2 МБ
+                        {% elif s == "hero_image_4" %}
+                          Реком.: JPG/WEBP ≥1920px, до ~1–2 МБ
+                        {% elif s == "hero_image_5" %}
+                          Реком.: JPG/WEBP ≥1920px, до ~1–2 МБ
+                        {% elif s == "registry_image" %}
+                          Реком.: PNG/WEBP ~1200×800
+                        {% elif s == "product_image" %}
+                          Реком.: PNG/WEBP ~1200×800
+                        {% elif s == "features_image" %}
+                          Реком.: PNG/WEBP ~1200×900
+                        {% endif %}
+                      </div>
+                    </div>
+                    {% if found.asset %}
+                      <a class="btn btn-outline-secondary btn-sm p-2" href="{{ url_for('uploads', filename=found.asset.stored_filename) }}" target="_blank" title="Открыть" aria-label="Открыть">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                          <path fill="currentColor" d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3ZM5 5h6v2H7v10h10v-4h2v6H5V5Z"/>
+                        </svg>
+                      </a>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <form method="post" action="{{ url_for('admin_assets_upload') }}" enctype="multipart/form-data">
+              <input type="hidden" name="kind" value="image">
+              <input type="hidden" name="slot_key" id="slotKeyValue" value="hero_image">
+
+              <div class="mb-3">
+                <label class="form-label">Куда загрузить</label>
+                <select class="form-select" id="slotKeySelect" required>
+                  <option value="hero_image" selected>HERO — баннер 1 (hero_image)</option>
+                  <option value="hero_image_2">HERO — баннер 2 (hero_image_2)</option>
+                  <option value="hero_image_3">HERO — баннер 3 (hero_image_3)</option>
+                  <option value="hero_image_4">HERO — баннер 4 (hero_image_4)</option>
+                  <option value="hero_image_5">HERO — баннер 5 (hero_image_5)</option>
+                  <option value="site_logo">Логотип сайта (site_logo)</option>
+                  <option value="site_favicon">Фавикон (site_favicon)</option>
+                  <option value="registry_image">Реестр ПО — картинка (registry_image)</option>
+                  <option value="product_image">Изображение продукта (product_image)</option>
+                  <option value="features_image">Ключевые возможности — картинка (features_image)</option>
+                  <option value="__custom__">Другой слот…</option>
+                </select>
+                <div class="form-text">Для баннеров HERO используйте hero_image…hero_image_5. При загрузке в уже занятый слот файл будет заменён.</div>
+              </div>
+
+              <div class="mb-3 d-none" id="slotKeyCustomWrap">
+                <label class="form-label">Слот (вручную)</label>
+                <input class="form-control font-monospace" id="slotKeyCustom" placeholder="например: hero_image_2">
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Файл</label>
+                <input class="form-control" type="file" name="file" accept="image/*,.svg,.ico" required>
+                <div class="form-text">Форматы: png/jpg/webp/svg/ico.</div>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Заголовок (необязательно)</label>
+                  <input class="form-control" name="title">
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Описание (необязательно)</label>
+                  <input class="form-control" name="description">
+                </div>
+              </div>
+
+              <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" type="submit">Загрузить изображение</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="tab-pane fade" id="pane-doc" role="tabpanel" aria-labelledby="tab-doc" tabindex="0">
+            <div class="text-secondary small mb-3">
+              Документы отображаются на лендинге в блоке «Документы» по категориям.
+            </div>
+
+            <form method="post" action="{{ url_for('admin_assets_upload') }}" enctype="multipart/form-data">
+              <input type="hidden" name="kind" value="doc">
+
+              <div class="mb-3">
+                <label class="form-label">Категория</label>
+                <select class="form-select" name="category">
+                  <option value="price">Прайс (price)</option>
+                  <option value="registry">Реестр ПО РФ (registry)</option>
+                  <option value="other" selected>Прочее (other)</option>
+                </select>
+                <div class="form-text">Категория влияет на то, где документ будет показан на сайте.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Файл</label>
+                <input class="form-control" type="file" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar" required>
+                <div class="form-text">Форматы: pdf/doc/docx/xls/xlsx/zip/rar.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Название на сайте (необязательно)</label>
+                <input class="form-control" name="title" placeholder="например: Прайс-лист 2026">
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Описание (необязательно)</label>
+                <textarea class="form-control" name="description" rows="3" placeholder="Краткое описание для посетителей сайта"></textarea>
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-primary" type="submit">Загрузить документ</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+      <h2 class="h5 mb-0">Файлы в системе</h2>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('index') }}" target="_blank">Открыть сайт</a>
+    </div>
+    <div class="card border-0 shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 120px;">Тип</th>
+              <th>Название</th>
+              <th style="width: 160px;">Слот/Категория</th>
+              <th style="width: 110px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assets %}
+              <tr>
+                <td class="text-secondary">{{ a.kind }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    {% if a.kind == "image" %}
+                      <span class="rounded-2 border bg-light d-inline-flex align-items-center justify-content-center" style="width: 34px; height: 34px; overflow: hidden;">
+                        <img src="{{ url_for('uploads', filename=a.stored_filename) }}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                      </span>
+                    {% else %}
+                      <span class="rounded-2 border bg-light d-inline-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                        <span class="text-secondary small fw-semibold">DOC</span>
+                      </span>
+                    {% endif %}
+                    <div>
+                      <div class="fw-semibold">{{ a.title or a.original_filename }}</div>
+                      <div class="text-secondary small">{{ a.original_filename }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-secondary">
+                  {% if a.kind == "image" %}
+                    <span class="font-monospace">{{ a.slot_key }}</span>
+                  {% else %}
+                    <span class="badge text-bg-secondary">{{ a.category }}</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if a.kind == "doc" %}
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('download_file', asset_id=a.id) }}">Скачать</a>
+                  {% else %}
+                    <a class="btn btn-outline-secondary btn-sm p-2" href="{{ url_for('uploads', filename=a.stored_filename) }}" target="_blank" title="Открыть" aria-label="Открыть">
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path fill="currentColor" d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3ZM5 5h6v2H7v10h10v-4h2v6H5V5Z"/>
+                      </svg>
+                    </a>
+                  {% endif %}
+                  <form class="d-inline" method="post" action="{{ url_for('admin_assets_delete', asset_id=a.id) }}">
+                    <button class="btn btn-outline-danger btn-sm p-2" type="submit" title="Удалить" aria-label="Удалить">
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path fill="currentColor" d="M9 3h6l1 2h5v2H3V5h5l1-2Zm1 6h2v10h-2V9Zm4 0h2v10h-2V9ZM7 9h2v10H7V9Z"/>
+                      </svg>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+            {% if not assets %}
+              <tr>
+                <td colspan="4" class="text-center text-secondary py-4">Файлов пока нет.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const select = document.getElementById("slotKeySelect");
+    const hidden = document.getElementById("slotKeyValue");
+    const customWrap = document.getElementById("slotKeyCustomWrap");
+    const custom = document.getElementById("slotKeyCustom");
+    if (!select || !hidden || !customWrap || !custom) return;
+
+    const sync = () => {
+      const v = select.value;
+      if (v === "__custom__") {
+        customWrap.classList.remove("d-none");
+        custom.required = true;
+        hidden.value = (custom.value || "").trim();
+      } else {
+        customWrap.classList.add("d-none");
+        custom.required = false;
+        hidden.value = v;
+      }
+    };
+
+    select.addEventListener("change", sync);
+    custom.addEventListener("input", sync);
+    sync();
+  })();
+</script>
+{% endblock %}

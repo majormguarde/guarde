@@ -1,0 +1,53 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Админка — Заявка #{{ msg.id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+  <div>
+    <div class="text-secondary small">Заявка</div>
+    <h1 class="h4 mb-0">#{{ msg.id }} — {{ msg.subject or "Без темы" }}</h1>
+    <div class="text-secondary small">{{ msg.created_at.strftime("%d.%m.%Y %H:%M") }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_messages') }}">Назад</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Сообщение</div>
+        <div class="content-body">{{ msg.message|e|replace("\n", "<br>")|safe }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Контакты</div>
+        <div class="text-secondary small">
+          {% if msg.name %}<div><span class="text-secondary">Имя:</span> {{ msg.name }}</div>{% endif %}
+          {% if msg.company %}<div><span class="text-secondary">Компания:</span> {{ msg.company }}</div>{% endif %}
+          {% if msg.phone %}<div><span class="text-secondary">Телефон:</span> {{ msg.phone }}</div>{% endif %}
+          {% if msg.email %}<div><span class="text-secondary">E-mail:</span> {{ msg.email }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Статус</div>
+        <form method="post" action="{{ url_for('admin_message_status', msg_id=msg.id) }}">
+          <select class="form-select mb-3" name="status" required>
+            <option value="new" {% if msg.status == "new" %}selected{% endif %}>new</option>
+            <option value="in_progress" {% if msg.status == "in_progress" %}selected{% endif %}>in_progress</option>
+            <option value="done" {% if msg.status == "done" %}selected{% endif %}>done</option>
+          </select>
+          <button class="btn btn-primary w-100" type="submit">Сохранить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

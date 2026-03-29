@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm navbar-blur">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="#top">
+      <span class="brand-mark">
+        {% if logo_asset %}
+          <img class="brand-logo" src="{{ url_for('uploads', filename=logo_asset.stored_filename) }}" alt="{{ blocks['brand_full'].body }}">
+        {% else %}
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M12 2 20 6v7c0 5-3.4 9.7-8 11-4.6-1.3-8-6-8-11V6l8-4Zm0 2.2L6 6.7v6.3c0 4 2.6 7.8 6 9 3.4-1.2 6-5 6-9V6.7l-6-2.5Zm0 4.3a1 1 0 0 1 1 1v2.2l1.6.9a1 1 0 0 1-1 1.7L13 13v2a1 1 0 0 1-2 0v-2l-1.6-.9a1 1 0 1 1 1-1.7l1.6.9V9.5a1 1 0 0 1 1-1Z"/>
+          </svg>
+        {% endif %}
+      </span>
+      <span class="d-flex flex-column lh-sm">
+        <span class="fw-bold text-dark">{{ blocks["brand_full"].body }}</span>
+        <span class="text-primary small fw-semibold">{{ blocks["slogan"].body }}</span>
+      </span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Меню">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarMain">
+      <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link" href="#features">Возможности</a></li>
+        <li class="nav-item"><a class="nav-link" href="#registry">Реестр ПО</a></li>
+        <li class="nav-item"><a class="nav-link" href="#documents">Документы</a></li>
+        <li class="nav-item"><a class="nav-link" href="#support">Поддержка</a></li>
+      </ul>
+      <div class="d-flex ms-lg-3">
+        <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center p-2" href="/admin" title="Админка" aria-label="Админка">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M19.14 12.94a7.43 7.43 0 0 0 .05-.94 7.43 7.43 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.1 7.1 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.1 7.1 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.43 7.43 0 0 0-.05.94c0 .32.02.63.05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.39 1.05.72 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.22 1.13-.55 1.63-.94l2.39.96c.21.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<header id="top">
+  <div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="6500" data-bs-pause="false">
+    <div class="carousel-indicators">
+      <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Слайд 1"></button>
+      <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Слайд 2"></button>
+      <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" aria-label="Слайд 3"></button>
+      <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="3" aria-label="Слайд 4"></button>
+      <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="4" aria-label="Слайд 5"></button>
+    </div>
+
+    <div class="carousel-inner">
+      <div class="carousel-item active">
+        <div class="hero hero-banner {% if hero_image %}hero-has-bg{% else %}hero-no-bg{% endif %}" {% if hero_image %}style="background-image: url('{{ url_for('uploads', filename=hero_image.stored_filename) }}');"{% endif %}>
+          <div class="hero-overlay"></div>
+         
+          <div class="container-fluid hero-inner hero-banner-wrap">
+            <div class="hero-banner-panel hero-banner-panel--left text-center text-lg-start">
+              {% set has_hero_tags = (blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip()) or (blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip()) %}
+              {% if has_hero_tags %}
+                <div class="hero-banner-tags">
+                  {% if blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_2"].body }}</span>
+                  {% endif %}
+                  {% if blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_3"].body }}</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+              <h1 class="display-5 fw-bold text-white mb-3">{{ blocks["hero_title"].body }}</h1>
+              <p class="lead text-white-50 mb-4">{{ blocks["hero_subtitle"].body }}</p>
+              <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                <a class="btn btn-primary btn-lg" href="#support">
+                  {{ blocks["hero_cta_primary"].body }}
+                  <span class="ms-2" aria-hidden="true">›</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carousel-item">
+        <div class="hero hero-banner {% if hero_image_2 %}hero-has-bg{% else %}hero-no-bg{% endif %}" {% if hero_image_2 %}style="background-image: url('{{ url_for('uploads', filename=hero_image_2.stored_filename) }}');"{% endif %}>
+          <div class="hero-overlay"></div>
+         
+          <div class="container-fluid hero-inner hero-banner-wrap">
+            <div class="hero-banner-panel hero-banner-panel--right text-center text-lg-start">
+              {% set has_hero_tags = (blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip()) or (blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip()) %}
+              {% if has_hero_tags %}
+                <div class="hero-banner-tags">
+                  {% if blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_2"].body }}</span>
+                  {% endif %}
+                  {% if blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_3"].body }}</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+              <h2 class="display-5 fw-bold text-white mb-3">{{ blocks["hero_slide2_title"].body }}</h2>
+              <p class="lead text-white-50 mb-4">{{ blocks["hero_slide2_subtitle"].body }}</p>
+              <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                <a class="btn btn-primary btn-lg" href="#support">
+                  {{ blocks["hero_cta_primary"].body }}
+                  <span class="ms-2" aria-hidden="true">›</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carousel-item">
+        <div class="hero hero-banner {% if hero_image_3 %}hero-has-bg{% else %}hero-no-bg{% endif %}" {% if hero_image_3 %}style="background-image: url('{{ url_for('uploads', filename=hero_image_3.stored_filename) }}');"{% endif %}>
+          <div class="hero-overlay"></div>
+         
+          <div class="container-fluid hero-inner hero-banner-wrap">
+            <div class="hero-banner-panel hero-banner-panel--left text-center text-lg-start">
+              {% set has_hero_tags = (blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip()) or (blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip()) %}
+              {% if has_hero_tags %}
+                <div class="hero-banner-tags">
+                  {% if blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_2"].body }}</span>
+                  {% endif %}
+                  {% if blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_3"].body }}</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+              <h2 class="display-5 fw-bold text-white mb-3">{{ blocks["hero_slide3_title"].body }}</h2>
+              <p class="lead text-white-50 mb-4">{{ blocks["hero_slide3_subtitle"].body }}</p>
+              <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                <a class="btn btn-primary btn-lg" href="#support">
+                  {{ blocks["hero_cta_primary"].body }}
+                  <span class="ms-2" aria-hidden="true">›</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carousel-item">
+        <div class="hero hero-banner {% if hero_image_4 %}hero-has-bg{% else %}hero-no-bg{% endif %}" {% if hero_image_4 %}style="background-image: url('{{ url_for('uploads', filename=hero_image_4.stored_filename) }}');"{% endif %}>
+          <div class="hero-overlay"></div>
+         
+          <div class="container-fluid hero-inner hero-banner-wrap">
+            <div class="hero-banner-panel hero-banner-panel--right text-center text-lg-start">
+              {% set has_hero_tags = (blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip()) or (blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip()) %}
+              {% if has_hero_tags %}
+                <div class="hero-banner-tags">
+                  {% if blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_2"].body }}</span>
+                  {% endif %}
+                  {% if blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_3"].body }}</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+              <h2 class="display-5 fw-bold text-white mb-3">{{ blocks["hero_slide4_title"].body }}</h2>
+              <p class="lead text-white-50 mb-4">{{ blocks["hero_slide4_subtitle"].body }}</p>
+              <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                <a class="btn btn-primary btn-lg" href="#support">
+                  {{ blocks["hero_cta_primary"].body }}
+                  <span class="ms-2" aria-hidden="true">›</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carousel-item">
+        <div class="hero hero-banner {% if hero_image_5 %}hero-has-bg{% else %}hero-no-bg{% endif %}" {% if hero_image_5 %}style="background-image: url('{{ url_for('uploads', filename=hero_image_5.stored_filename) }}');"{% endif %}>
+          <div class="hero-overlay"></div>
+         
+          <div class="container-fluid hero-inner hero-banner-wrap">
+            <div class="hero-banner-panel hero-banner-panel--left text-center text-lg-start">
+              {% set has_hero_tags = (blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip()) or (blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip()) %}
+              {% if has_hero_tags %}
+                <div class="hero-banner-tags">
+                  {% if blocks.get("hero_tag_2") and blocks["hero_tag_2"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_2"].body }}</span>
+                  {% endif %}
+                  {% if blocks.get("hero_tag_3") and blocks["hero_tag_3"].body.strip() %}
+                    <span class="hero-banner-kicker font-monospace">{{ blocks["hero_tag_3"].body }}</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+              <h2 class="display-5 fw-bold text-white mb-3">{{ blocks["hero_slide5_title"].body }}</h2>
+              <p class="lead text-white-50 mb-4">{{ blocks["hero_slide5_subtitle"].body }}</p>
+              <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                <a class="btn btn-primary btn-lg" href="#support">
+                  {{ blocks["hero_cta_primary"].body }}
+                  <span class="ms-2" aria-hidden="true">›</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev" aria-label="Предыдущий слайд">
+      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next" aria-label="Следующий слайд">
+      <span class="carousel-control-next-icon" aria-hidden="true"></span>
+    </button>
+  </div>
+</header>
+
+{% if blocks["hero_mockup_label"].body.strip() %}
+  <button class="sticky-registry-btn" type="button" data-registr-po-open aria-controls="registrPoOffcanvas" aria-label="Информация о регистрации ПО">
+    <span class="sticky-registry-btn__label">{{ blocks["hero_mockup_label"].body }}</span>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path fill="currentColor" d="M12 2a5 5 0 0 1 5 5c0 1.04-.33 2-.9 2.79l3.52 6.11a2 2 0 0 1-1.73 3H6.11a2 2 0 0 1-1.73-3l3.52-6.11A4.97 4.97 0 0 1 7 7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3c0 .82.33 1.56.88 2.12l.52.52-4.29 7.45h11.78l-4.29-7.45.52-.52A2.98 2.98 0 0 0 15 7a3 3 0 0 0-3-3Zm-1.1 8.2h2.2v5.1h-2.2v-5.1Zm0-3.1h2.2v2.2h-2.2V9.1Z"/>
+    </svg>
+  </button>
+{% endif %}
+<a class="sticky-calc-btn" href="http://31.148.31.130/calc/" target="_blank" rel="noopener noreferrer" aria-label="Калькулятор">
+  <span class="sticky-calc-btn__label">Калькулятор</span>
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm0 2v16h10V4H7Zm2 2h6v3H9V6Zm0 5h2v2H9v-2Zm0 4h2v2H9v-2Zm4-4h2v2h-2v-2Zm0 4h2v2h-2v-2Z"/>
+  </svg>
+</a>
+
+{% include "admin/registr_po.html" %}
+
+<section id="features" class="section-pad bg-surface">
+  <div class="container">
+    <div class="text-center mb-5">
+      <h2 class="display-6 fw-bold mb-2">{{ blocks["features_title"].body }}</h2>
+      <p class="lead text-secondary mb-0">{{ blocks["features_subtitle"].body }}</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm feature-tile">
+              <div class="card-body p-4">
+                {% if feature_1_image %}
+                  <img class="feature-panel-img mb-3" src="{{ url_for('uploads', filename=feature_1_image.stored_filename) }}" alt="{{ feature_1_image.title or blocks['feature_1_title'].body }}">
+                {% else %}
+                  <div class="icon-tile icon-tile-blue mb-3">
+                    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                      <path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z"/>
+                    </svg>
+                  </div>
+                {% endif %}
+                <div class="h5 fw-bold mb-2">{{ blocks["feature_1_title"].body }}</div>
+                <div class="text-secondary">{{ blocks["feature_1_desc"].body }}</div>
+              </div>
+            </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm feature-tile">
+              <div class="card-body p-4">
+                {% if feature_2_image %}
+                  <img class="feature-panel-img mb-3" src="{{ url_for('uploads', filename=feature_2_image.stored_filename) }}" alt="{{ feature_2_image.title or blocks['feature_2_title'].body }}">
+                {% else %}
+                  <div class="icon-tile icon-tile-blue mb-3">
+                    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                      <path fill="currentColor" d="M12 1a10 10 0 1 0 10 10A10 10 0 0 0 12 1Zm1 11h5v2h-7V6h2Z"/>
+                    </svg>
+                  </div>
+                {% endif %}
+                <div class="h5 fw-bold mb-2">{{ blocks["feature_2_title"].body }}</div>
+                <div class="text-secondary">{{ blocks["feature_2_desc"].body }}</div>
+              </div>
+            </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm feature-tile">
+              <div class="card-body p-4">
+                {% if feature_3_image %}
+                  <img class="feature-panel-img mb-3" src="{{ url_for('uploads', filename=feature_3_image.stored_filename) }}" alt="{{ feature_3_image.title or blocks['feature_3_title'].body }}">
+                {% else %}
+                  <div class="icon-tile icon-tile-blue mb-3">
+                    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                      <path fill="currentColor" d="M4 4h16v10H4V4Zm0 12h6v2H4v-2Zm8 0h8v2h-8v-2ZM6 6v6h12V6H6Z"/>
+                    </svg>
+                  </div>
+                {% endif %}
+                <div class="h5 fw-bold mb-2">{{ blocks["feature_3_title"].body }}</div>
+                <div class="text-secondary">{{ blocks["feature_3_desc"].body }}</div>
+              </div>
+            </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm feature-tile">
+              <div class="card-body p-4">
+                {% if feature_4_image %}
+                  <img class="feature-panel-img mb-3" src="{{ url_for('uploads', filename=feature_4_image.stored_filename) }}" alt="{{ feature_4_image.title or blocks['feature_4_title'].body }}">
+                {% else %}
+                  <div class="icon-tile icon-tile-blue mb-3">
+                    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                      <path fill="currentColor" d="M12 2 4 6v7c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 7h2v2h-2V9Zm0 4h2v4h-2v-4Z"/>
+                    </svg>
+                  </div>
+                {% endif %}
+                <div class="h5 fw-bold mb-2">{{ blocks["feature_4_title"].body }}</div>
+                <div class="text-secondary">{{ blocks["feature_4_desc"].body }}</div>
+              </div>
+            </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="advantages" class="section-pad bg-white border-bottom">
+  <div class="container">
+    <div class="text-center mb-5">
+      <h2 class="display-6 fw-bold mb-2">{{ blocks["advantages_title"].body }}</h2>
+      <p class="lead text-secondary mb-0">{{ blocks["advantages_subtitle"].body }}</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm feature-tile">
+          <div class="card-body p-4">
+            <div class="icon-tile icon-tile-blue mb-3">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v6h-2V8Zm0 8h2v2h-2v-2Z"/>
+              </svg>
+            </div>
+            <div class="h5 fw-bold mb-2">{{ blocks["adv_1_title"].body }}</div>
+            <div class="text-secondary">{{ blocks["adv_1_desc"].body }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm feature-tile">
+          <div class="card-body p-4">
+            <div class="icon-tile icon-tile-blue mb-3">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="currentColor" d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/>
+              </svg>
+            </div>
+            <div class="h5 fw-bold mb-2">{{ blocks["adv_2_title"].body }}</div>
+            <div class="text-secondary">{{ blocks["adv_2_desc"].body }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm feature-tile">
+          <div class="card-body p-4">
+            <div class="icon-tile icon-tile-blue mb-3">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="currentColor" d="M6 2h9l5 5v15H6V2Zm2 2v16h10V8h-4V4H8Zm2 6h6v2h-6v-2Zm0 4h6v2h-6v-2Z"/>
+              </svg>
+            </div>
+            <div class="h5 fw-bold mb-2">{{ blocks["adv_3_title"].body }}</div>
+            <div class="text-secondary">{{ blocks["adv_3_desc"].body }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm feature-tile">
+          <div class="card-body p-4">
+            <div class="icon-tile icon-tile-blue mb-3">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="currentColor" d="M12 4 2 9l10 5 10-5-10-5Zm0 7 6.7-3.3L12 4.4 5.3 7.7 12 11Zm-8 3 8 4 8-4v2l-8 4-8-4v-2Z"/>
+              </svg>
+            </div>
+            <div class="h5 fw-bold mb-2">{{ blocks["adv_4_title"].body }}</div>
+            <div class="text-secondary">{{ blocks["adv_4_desc"].body }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm feature-tile">
+          <div class="card-body p-4">
+            <div class="icon-tile icon-tile-blue mb-3">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="currentColor" d="M12 3 2 9l10 6 10-6-10-6Zm0 8.5L5.3 8.2 12 4.6l6.7 3.6L12 11.5Zm-6 4.7v2.3l6 3 6-3v-2.3l-6 3-6-3Z"/>
+              </svg>
+            </div>
+            <div class="h5 fw-bold mb-2">{{ blocks["adv_5_title"].body }}</div>
+            <div class="text-secondary">{{ blocks["adv_5_desc"].body }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm feature-tile">
+          <div class="card-body p-4">
+            <div class="icon-tile icon-tile-blue mb-3">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1 5v5l4 2-1 2-5-3V7h2Z"/>
+              </svg>
+            </div>
+            <div class="h5 fw-bold mb-2">{{ blocks["adv_6_title"].body }}</div>
+            <div class="text-secondary">{{ blocks["adv_6_desc"].body }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="documents" class="section-pad bg-white">
+  <div class="container">
+    <div class="text-center mb-4">
+      <h2 class="display-6 fw-bold mb-2">{{ blocks["documents_title"].body }}</h2>
+      <p class="lead text-secondary mb-0">{{ blocks["documents_subtitle"].body }}</p>
+    </div>
+
+    <div class="docs-wrap">
+      {% if prices or registry_docs or other_docs %}
+        {% if prices %}
+          <div class="docs-group">
+            <div class="docs-group-title">
+              <span class="badge text-bg-success">price</span>
+              <span class="ms-2 fw-semibold">Прайс</span>
+            </div>
+            <div class="list-group list-group-flush">
+              {% for doc in prices %}
+                <a class="list-group-item list-group-item-action docs-item" href="{{ url_for('download_file', asset_id=doc.id) }}">
+                  <div class="d-flex align-items-center gap-3">
+                    <span class="icon-tile icon-tile-green">
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path fill="currentColor" d="M6 2h9l3 3v17H6V2Zm2 2v16h8V6h-2V4H8Z"/>
+                      </svg>
+                    </span>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">{{ doc.title or doc.original_filename }}</div>
+                      {% if doc.description %}<div class="text-secondary small">{{ doc.description }}</div>{% endif %}
+                    </div>
+                    <span class="text-secondary" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="currentColor" d="M12 3v10.2l3.6-3.6 1.4 1.4L12 17l-5-5 1.4-1.4L12 13.2V3h0ZM5 19h14v2H5v-2Z"/>
+                      </svg>
+                    </span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if other_docs %}
+          <div class="docs-group">
+            <div class="docs-group-title">
+              <span class="badge text-bg-primary">doc</span>
+              <span class="ms-2 fw-semibold">Документы</span>
+            </div>
+            <div class="list-group list-group-flush">
+              {% for doc in other_docs %}
+                <a class="list-group-item list-group-item-action docs-item" href="{{ url_for('download_file', asset_id=doc.id) }}">
+                  <div class="d-flex align-items-center gap-3">
+                    <span class="icon-tile icon-tile-blue">
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path fill="currentColor" d="M6 2h9l3 3v17H6V2Zm2 2v16h8V6h-2V4H8Z"/>
+                      </svg>
+                    </span>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">{{ doc.title or doc.original_filename }}</div>
+                      {% if doc.description %}<div class="text-secondary small">{{ doc.description }}</div>{% endif %}
+                    </div>
+                    <span class="text-secondary" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="currentColor" d="M12 3v10.2l3.6-3.6 1.4 1.4L12 17l-5-5 1.4-1.4L12 13.2V3h0ZM5 19h14v2H5v-2Z"/>
+                      </svg>
+                    </span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if registry_docs %}
+          <div class="docs-group">
+            <div class="docs-group-title">
+              <span class="badge text-bg-success">registry</span>
+              <span class="ms-2 fw-semibold">Реестр ПО РФ</span>
+            </div>
+            <div class="list-group list-group-flush">
+              {% for doc in registry_docs %}
+                <a class="list-group-item list-group-item-action docs-item" href="{{ url_for('download_file', asset_id=doc.id) }}">
+                  <div class="d-flex align-items-center gap-3">
+                    <span class="icon-tile icon-tile-green">
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path fill="currentColor" d="M6 2h9l3 3v17H6V2Zm2 2v16h8V6h-2V4H8Z"/>
+                      </svg>
+                    </span>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">{{ doc.title or doc.original_filename }}</div>
+                      {% if doc.description %}<div class="text-secondary small">{{ doc.description }}</div>{% endif %}
+                    </div>
+                    <span class="text-secondary" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="currentColor" d="M12 3v10.2l3.6-3.6 1.4 1.4L12 17l-5-5 1.4-1.4L12 13.2V3h0ZM5 19h14v2H5v-2Z"/>
+                      </svg>
+                    </span>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="text-center text-secondary py-5">Документы пока не добавлены. Загрузите их в админке.</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section id="support" class="section-pad support-section text-white">
+  <div class="container">
+    <div class="row g-5 align-items-start">
+      <div class="col-12 col-lg-6">
+        <h2 class="display-6 fw-bold mb-3">{{ blocks["support_title"].body }}</h2>
+        <p class="lead text-white-50 mb-4">{{ blocks["support_subtitle"].body }}</p>
+
+        <div class="row g-3">
+          <div class="col-12">
+            <div class="contact-tile">
+              <div class="contact-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+                  <path fill="currentColor" d="M6.6 10.8a13.8 13.8 0 0 0 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.2 1.3.4 2.7.7 4.2.7.7 0 1.2.5 1.2 1.2V21c0 .7-.5 1.2-1.2 1.2C10.4 22.2 1.8 13.6 1.8 3.4 1.8 2.7 2.3 2.2 3 2.2h3.5c.7 0 1.2.5 1.2 1.2 0 1.5.2 2.9.7 4.2.1.4 0 .9-.2 1.2l-2.2 2.2Z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="text-white-50 small">Горячая линия</div>
+                <div class="h5 mb-0">{{ blocks["contacts_phone"].body }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="contact-tile">
+              <div class="contact-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+                  <path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5L4 8V6l8 5 8-5v2Z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="text-white-50 small">Электронная почта</div>
+                <div class="h5 mb-0">{{ blocks["contacts_email"].body }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="contact-tile">
+              <div class="contact-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+                  <path fill="currentColor" d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7Zm0 9.5A2.5 2.5 0 1 0 9.5 9 2.5 2.5 0 0 0 12 11.5Z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="text-white-50 small">Адрес</div>
+                <div class="h6 mb-0">{{ blocks["contacts_address"].body }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <div class="card border-0 shadow-lg support-form">
+          <div class="card-body p-4 p-md-5">
+            <h3 class="h4 fw-bold mb-3">Оставить заявку</h3>
+            <form method="post" action="{{ url_for('support_submit') }}">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label">Ваше имя</label>
+                  <input class="form-control form-control-lg" name="name" autocomplete="name" required>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label">E-mail</label>
+                  <input class="form-control form-control-lg" name="email" type="email" autocomplete="email" required>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Компания</label>
+                  <input class="form-control form-control-lg" name="company" autocomplete="organization">
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Телефон</label>
+                  <input class="form-control form-control-lg" name="phone" autocomplete="tel">
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Тема</label>
+                  <input class="form-control form-control-lg" name="subject">
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Сообщение / Суть вопроса</label>
+                  <textarea class="form-control" name="message" rows="5" required></textarea>
+                </div>
+                <div class="col-12 d-grid">
+                  <button class="btn btn-primary btn-lg" type="submit">Отправить заявку</button>
+                </div>
+                <div class="col-12 text-secondary small">
+                  Заявка попадёт в админку и будет обработана техподдержкой.
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer footer-dark">
+  <div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-2">
+      <div class="text-white-50 small">© {{ year }} {{ blocks["brand_full"].body }}. Все права защищены.</div>
+      <div class="text-white-50 small">{{ blocks["contacts_address"].body }}</div>
+    </div>
+  </div>
+</footer>
+{% endblock %}

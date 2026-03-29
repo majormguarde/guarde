@@ -1,0 +1,60 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Админка — Панель{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h1 class="h4 mb-2">Панель управления</h1>
+        <div class="text-secondary">Управляйте текстами, изображениями, документами и заявками техподдержки.</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="small text-uppercase text-secondary">Новые заявки</div>
+        <div class="display-6 fw-semibold mb-2">{{ new_messages }}</div>
+        <a class="btn btn-primary w-100" href="{{ url_for('admin_messages') }}">Открыть заявки</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-md-6 col-lg-3">
+    <a class="card card-hover border-0 shadow-sm text-decoration-none" href="{{ url_for('admin_content_list') }}">
+      <div class="card-body">
+        <div class="fw-semibold mb-1">Тексты</div>
+        <div class="text-secondary small">Редактирование контента лендинга</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-12 col-md-6 col-lg-3">
+    <a class="card card-hover border-0 shadow-sm text-decoration-none" href="{{ url_for('admin_assets') }}">
+      <div class="card-body">
+        <div class="fw-semibold mb-1">Файлы</div>
+        <div class="text-secondary small">Изображения и документы (прайс, реестр)</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-12 col-md-6 col-lg-3">
+    <a class="card card-hover border-0 shadow-sm text-decoration-none" href="{{ url_for('admin_messages') }}">
+      <div class="card-body">
+        <div class="fw-semibold mb-1">Заявки</div>
+        <div class="text-secondary small">Обращения с сайта</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-12 col-md-6 col-lg-3">
+    <a class="card card-hover border-0 shadow-sm text-decoration-none" href="{{ url_for('admin_settings') }}">
+      <div class="card-body">
+        <div class="fw-semibold mb-1">Настройки</div>
+        <div class="text-secondary small">Смена пароля администратора</div>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}
