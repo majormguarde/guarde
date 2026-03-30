@@ -37,6 +37,7 @@ from models import (
     Asset,
     Base,
     ContentBlock,
+    User,
     SupportAttachment,
     SupportComplaintMedia,
     SupportMessage,
@@ -550,6 +551,13 @@ def create_app() -> Flask:
                     "ADD COLUMN staff_notes TEXT NOT NULL DEFAULT ''"
                 )
             )
+        if "user_id" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE support_messages "
+                    "ADD COLUMN user_id INTEGER NULL"
+                )
+            )
 
         attachment_cols = {
             r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_attachments)"))
@@ -789,6 +797,21 @@ def create_app() -> Flask:
         wrapped.__name__ = view.__name__
         return wrapped
 
+    def current_client() -> User | None:
+        user_id = session.get("user_id")
+        if not user_id:
+            return None
+        return db().get(User, int(user_id))
+
+    def client_login_required(view: Callable[..., object]) -> Callable[..., object]:
+        def wrapped(*args: object, **kwargs: object) -> object:
+            if current_client() is None:
+                return redirect(url_for("login", next=request.path))
+            return view(*args, **kwargs)
+
+        wrapped.__name__ = view.__name__
+        return wrapped
+
     def get_blocks() -> dict[str, ContentBlock]:
         ensure_defaults()
         blocks = db().scalars(select(ContentBlock)).all()
@@ -802,6 +825,7 @@ def create_app() -> Flask:
         return {
             "logo_asset": get_asset_by_slot("site_logo"),
             "favicon_asset": get_asset_by_slot("site_favicon"),
+            "client_user": current_client(),
         }
 
     def allowed_file(filename: str, exts: set[str]) -> bool:
@@ -1210,6 +1234,10 @@ def create_app() -> Flask:
 
     @app.post("/support")
     def support_submit():
+        user = current_client()
+        if user is None:
+            flash("Отправка заявок доступна только зарегистрированным пользователям. Войдите или зарегистрируйтесь.", "warning")
+            return redirect(url_for("login", next=url_for("index") + "#support"))
         name = (request.form.get("name") or "").strip()
         email_honeypot = (request.form.get("email") or "").strip()
         email = ""
@@ -1247,12 +1275,13 @@ def create_app() -> Flask:
             return redirect(url_for("index") + "#support")
 
         msg = SupportMessage(
-            name=name,
+            user_id=user.id,
+            name=user.username or name,
             email=email,
-            company=company,
-            phone=phone,
-            telegram=telegram,
-            whatsapp=whatsapp,
+            company=user.company or company,
+            phone=user.phone or phone,
+            telegram=user.telegram or telegram,
+            whatsapp=user.whatsapp or whatsapp,
             anydesk_id=anydesk_id,
             subject=subject,
             message=message,
@@ -1303,6 +1332,85 @@ def create_app() -> Flask:
             as_attachment=True,
             download_name=asset.original_filename,
         )
+
+    @app.get("/register")
+    def register():
+        if current_client() is not None:
+            return redirect(url_for("cabinet"))
+        return render_template("auth_register.html")
+
+    @app.post("/register")
+    def register_post():
+        if current_client() is not None:
+            return redirect(url_for("cabinet"))
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        company = (request.form.get("company") or "").strip()
+        phone = normalize_multivalue(request.form.get("phone") or "")
+        telegram = normalize_multivalue(request.form.get("telegram") or "")
+        whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
+        if not username or len(password) < 8:
+            flash("Укажите логин и пароль (минимум 8 символов).", "danger")
+            return redirect(url_for("register"))
+        if not telegram and not whatsapp:
+            flash("Укажите Telegram или WhatsApp для обратной связи.", "danger")
+            return redirect(url_for("register"))
+        exists = db().scalar(select(User.id).where(func.lower(User.username) == username.lower()))
+        if exists:
+            flash("Пользователь с таким логином уже существует.", "danger")
+            return redirect(url_for("register"))
+        u = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            company=company,
+            phone=phone,
+            telegram=telegram,
+            whatsapp=whatsapp,
+            created_at=datetime.utcnow(),
+        )
+        db().add(u)
+        db().flush()
+        session["user_id"] = u.id
+        flash("Регистрация успешна.", "success")
+        next_url = safe_next_url(request.args.get("next"))
+        return redirect(next_url or url_for("cabinet"))
+
+    @app.get("/login")
+    def login():
+        if current_client() is not None:
+            return redirect(url_for("cabinet"))
+        return render_template("auth_login.html")
+
+    @app.post("/login")
+    def login_post():
+        if current_client() is not None:
+            return redirect(url_for("cabinet"))
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        u = db().scalar(select(User).where(User.username == username))
+        if u is None or not check_password_hash(u.password_hash, password):
+            flash("Неверный логин или пароль.", "danger")
+            return redirect(url_for("login"))
+        session["user_id"] = u.id
+        flash("Вход выполнен.", "success")
+        next_url = safe_next_url(request.args.get("next"))
+        return redirect(next_url or url_for("cabinet"))
+
+    @app.post("/logout")
+    def logout():
+        session.pop("user_id", None)
+        flash("Вы вышли из личного кабинета.", "success")
+        next_url = safe_next_url(request.args.get("next"))
+        return redirect(next_url or url_for("index"))
+
+    @app.get("/cabinet")
+    @client_login_required
+    def cabinet():
+        user = current_client()
+        messages = db().scalars(
+            select(SupportMessage).where(SupportMessage.user_id == user.id).order_by(SupportMessage.created_at.desc())
+        ).all()
+        return render_template("cabinet.html", messages=messages)
 
     @app.get("/setup")
     def setup_get():

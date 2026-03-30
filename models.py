@@ -19,6 +19,22 @@ class AdminUser(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("username", name="uq_users_username"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(120), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
+    company: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    phone: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    telegram: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    whatsapp: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ContentBlock(Base):
     __tablename__ = "content_blocks"
 
@@ -51,6 +67,7 @@ class SupportMessage(Base):
     __tablename__ = "support_messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
     email: Mapped[str] = mapped_column(String(200), default="", nullable=False)
     company: Mapped[str] = mapped_column(String(200), default="", nullable=False)
