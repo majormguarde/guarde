@@ -84,6 +84,73 @@ MAX_UPLOAD_MB=512
 chmod 600 /etc/guarde.env
 ```
 
+### Хранилище файлов (локально или S3-совместимое)
+
+По умолчанию приложение сохраняет загружаемые файлы на диск сервера в `static/uploads/`.
+Чтобы не расходовать дисковое пространство хостинга, можно включить хранение в облаке (S3-совместимый Object Storage).
+
+#### Режим 1: локальное хранение (по умолчанию)
+
+Ничего настраивать не нужно:
+- `STORAGE_BACKEND` не задан или равен `local`.
+- Файлы сохраняются в `/var/www/guarde/static/uploads/` (внутри проекта).
+
+#### Режим 2: S3-совместимое хранилище (рекомендуется)
+
+Подходит для:
+- Yandex Cloud Object Storage
+- VK Cloud / Selectel / S3-compatible провайдеров
+- MinIO (для своей инфраструктуры)
+
+1) Включите backend:
+
+```ini
+STORAGE_BACKEND=s3
+```
+
+2) Задайте параметры подключения:
+
+```ini
+S3_BUCKET=your-bucket-name
+S3_PREFIX=guarde
+S3_ENDPOINT_URL=https://storage.yandexcloud.net
+S3_REGION=ru-central1
+S3_ACCESS_KEY_ID=YOUR_ACCESS_KEY_ID
+S3_SECRET_ACCESS_KEY=YOUR_SECRET_ACCESS_KEY
+```
+
+Пояснения:
+- `S3_BUCKET` — имя бакета (обязательно).
+- `S3_PREFIX` — префикс “папки” в бакете (необязательно). Если задан, файлы будут храниться внутри `S3_PREFIX/...`.
+- `S3_ENDPOINT_URL` — endpoint провайдера (для Yandex Cloud: `https://storage.yandexcloud.net`).
+- `S3_REGION` — регион (для Yandex Cloud чаще всего `ru-central1`).
+- `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` — ключи доступа к бакету.
+
+Поведение в S3 режиме:
+- Все новые загрузки пишутся в бакет.
+- Скачивание/просмотр файлов идёт через временную presigned-ссылку (редирект), срок действия 15 минут.
+
+Важно:
+- Рекомендуется держать бакет приватным, доступ выдаётся только presigned-ссылками.
+- Если у вас уже есть файлы в `static/uploads/`, их нужно перенести в бакет (см. ниже).
+
+#### Перенос существующих файлов в S3
+
+Если раньше использовалось локальное хранение, перенесите содержимое `static/uploads/` в бакет с сохранением путей.
+
+Пример через AWS CLI (работает и для S3-compatible при указании endpoint):
+
+```bash
+aws s3 sync /var/www/guarde/static/uploads "s3://your-bucket-name/guarde" --endpoint-url https://storage.yandexcloud.net
+```
+
+После переноса:
+- включите `STORAGE_BACKEND=s3`,
+- перезапустите сервис (`systemctl restart guarde`).
+
+Примечание про Яндекс.Диск:
+- Яндекс.Диск не является S3-совместимым Object Storage. Для него нужна отдельная реализация (OAuth/WebDAV/REST) и другая схема выдачи файлов.
+
 ### 4) systemd (Gunicorn)
 
 Создайте unit:
@@ -143,12 +210,6 @@ server {
     add_header Cache-Control "public";
   }
 
-  location /uploads/ {
-    alias /var/www/guarde/static/uploads/;
-    expires 7d;
-    add_header Cache-Control "public";
-  }
-
   location / {
     proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host $host;
@@ -158,6 +219,9 @@ server {
   }
 }
 ```
+
+Важно: не добавляйте отдельный `location /uploads/` через `alias`.
+Файлы выдаются приложением (в том числе с проверками доступа для некоторых категорий), а при `STORAGE_BACKEND=s3` `/uploads/...` будет перенаправлять на presigned-ссылки.
 
 Активируйте сайт:
 
@@ -201,5 +265,5 @@ systemctl restart guarde
 
 Сохраняйте минимум:
 - `/var/www/guarde/site.db` (SQLite база)
-- `/var/www/guarde/static/uploads/` (загруженные файлы)
-
+- Если `STORAGE_BACKEND=local`: `/var/www/guarde/static/uploads/` (загруженные файлы)
+- Если `STORAGE_BACKEND=s3`: делайте бэкапы/версии на стороне Object Storage (бакет), локальная папка с файлами не используется

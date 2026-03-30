@@ -128,7 +128,7 @@
           <div class="d-flex align-items-center gap-2 mb-2">
             <span class="badge text-bg-secondary">{{ g.key }}</span>
             <span class="fw-semibold">{{ g.title }}</span>
-            <span class="text-secondary small">({{ g.items | length }})</span>
+            <span class="text-secondary small">({{ g["items"] | length }})</span>
           </div>
           <div class="card border-0 shadow-sm">
             <div class="table-responsive">
@@ -141,7 +141,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {% for a in g.items %}
+                  {% for a in g["items"] %}
                     <tr>
                       <td>
                         <div class="fw-semibold">{{ a.title or a.original_filename }}</div>

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import html
+import io
 import json
+import mimetypes
 import os
 import re
 import secrets
+import tempfile
 import time
 import uuid
 import zipfile
 from datetime import datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlencode, urlparse
@@ -505,6 +509,10 @@ REGISTRY_EDITOR_SECTIONS: tuple[dict[str, object], ...] = (
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=False)
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key-change-me")
+    storage_backend = (os.environ.get("STORAGE_BACKEND") or "local").strip().lower()
+    if storage_backend not in {"local", "s3"}:
+        storage_backend = "local"
+    app.config["STORAGE_BACKEND"] = storage_backend
     max_upload_mb_raw = (os.environ.get("MAX_UPLOAD_MB") or "").strip()
     if max_upload_mb_raw.isdigit():
         max_upload_mb = int(max_upload_mb_raw)
@@ -518,8 +526,125 @@ def create_app() -> Flask:
     engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    if app.config["STORAGE_BACKEND"] == "local":
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+
+    def _content_type_for_filename(name: str) -> str:
+        guess, _ = mimetypes.guess_type(name or "")
+        return guess or "application/octet-stream"
+
+    def _download_name(original: str, fallback: str) -> str:
+        raw = (original or "").strip() or (fallback or "").strip() or "file"
+        raw = raw.replace("\r", " ").replace("\n", " ").strip() or "file"
+        if (fallback or "").lower().endswith(".zip") and not raw.lower().endswith(".zip"):
+            raw = f"{raw}.zip"
+        return raw
+
+    @lru_cache(maxsize=1)
+    def _s3_client():
+        import boto3
+
+        endpoint_url = (os.environ.get("S3_ENDPOINT_URL") or "").strip() or None
+        region = (os.environ.get("S3_REGION") or "").strip() or None
+        access_key = (os.environ.get("S3_ACCESS_KEY_ID") or "").strip() or None
+        secret_key = (os.environ.get("S3_SECRET_ACCESS_KEY") or "").strip() or None
+        return boto3.client(
+            "s3",
+            endpoint_url=endpoint_url,
+            region_name=region,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+        )
+
+    def _s3_bucket() -> str:
+        bucket = (os.environ.get("S3_BUCKET") or "").strip()
+        if not bucket:
+            raise RuntimeError("S3_BUCKET is required when STORAGE_BACKEND=s3")
+        return bucket
+
+    def _s3_prefix() -> str:
+        prefix = (os.environ.get("S3_PREFIX") or "").strip().strip("/")
+        return prefix
+
+    def _storage_key(key: str) -> str:
+        key = (key or "").replace("\\", "/").lstrip("/")
+        prefix = _s3_prefix()
+        if not prefix:
+            return key
+        return f"{prefix}/{key}"
+
+    class _CountingIO(io.RawIOBase):
+        def __init__(self, base):
+            self._base = base
+            self.bytes_read = 0
+
+        def readable(self):
+            return True
+
+        def read(self, size=-1):
+            chunk = self._base.read(size)
+            if chunk:
+                self.bytes_read += len(chunk)
+            return chunk
+
+    def storage_put(key: str, fileobj, content_type: str) -> int:
+        if app.config["STORAGE_BACKEND"] == "local":
+            abs_path = UPLOAD_DIR / key
+            abs_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(abs_path, "wb") as dst:
+                size = 0
+                while True:
+                    chunk = fileobj.read(8 * 1024 * 1024)
+                    if not chunk:
+                        break
+                    dst.write(chunk)
+                    size += len(chunk)
+            return size
+
+        key = _storage_key(key)
+        counting = _CountingIO(fileobj)
+        _s3_client().upload_fileobj(
+            counting,
+            _s3_bucket(),
+            key,
+            ExtraArgs={"ContentType": content_type},
+        )
+        return int(counting.bytes_read)
+
+    def storage_delete(key: str) -> None:
+        key = (key or "").replace("\\", "/").lstrip("/")
+        if not key:
+            return
+        if app.config["STORAGE_BACKEND"] == "local":
+            try:
+                (UPLOAD_DIR / key).unlink(missing_ok=True)
+            except OSError:
+                pass
+            return
+        _s3_client().delete_object(Bucket=_s3_bucket(), Key=_storage_key(key))
+
+    def storage_send(key: str, as_attachment: bool, download_name: str | None = None):
+        key = (key or "").replace("\\", "/").lstrip("/")
+        if app.config["STORAGE_BACKEND"] == "local":
+            return send_from_directory(
+                UPLOAD_DIR,
+                key,
+                as_attachment=as_attachment,
+                download_name=download_name,
+            )
+        params: dict[str, object] = {"Bucket": _s3_bucket(), "Key": _storage_key(key)}
+        if download_name:
+            safe_name = (download_name or "").replace("\r", " ").replace("\n", " ").strip()
+            safe_name = safe_name.replace('"', "'").strip() or "file"
+            disp = "attachment" if as_attachment else "inline"
+            params["ResponseContentDisposition"] = f'{disp}; filename="{safe_name}"'
+        url = _s3_client().generate_presigned_url(
+            "get_object",
+            Params=params,
+            ExpiresIn=900,
+        )
+        return redirect(url)
 
     support_fts_available = True
     with engine.begin() as conn:
@@ -1176,7 +1301,11 @@ def create_app() -> Flask:
             raise ValueError("Имя файла не содержит расширения.")
         ext = safe.rsplit(".", 1)[1].lower()
         stored = f"{uuid.uuid4().hex}.{ext}"
-        file_storage.save(UPLOAD_DIR / stored)
+        if app.config["STORAGE_BACKEND"] == "local":
+            file_storage.save(UPLOAD_DIR / stored)
+        else:
+            file_storage.stream.seek(0, os.SEEK_SET)
+            storage_put(stored, file_storage.stream, _content_type_for_filename(safe))
         return stored, original_name
 
     def normalize_multivalue(raw: str) -> str:
@@ -1193,24 +1322,23 @@ def create_app() -> Flask:
         store_as_zip = (not ext) or (ext not in ALLOWED_SUPPORT_UPLOAD_EXTS)
         stored_ext = "zip" if store_as_zip else ext
         rel = rel_dir / f"{uuid.uuid4().hex}.{stored_ext}"
-        abs_path = UPLOAD_DIR / rel
-        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        key = str(rel).replace("\\", "/")
         if store_as_zip:
             arcname = secure_filename(original_name) or "file"
-            with zipfile.ZipFile(abs_path, mode="w", compression=zipfile.ZIP_STORED) as zf:
-                with zf.open(arcname, "w") as dst:
-                    while True:
-                        chunk = file_storage.stream.read(8 * 1024 * 1024)
-                        if not chunk:
-                            break
-                        dst.write(chunk)
-        else:
-            file_storage.save(abs_path)
-        try:
-            size_bytes = int(abs_path.stat().st_size)
-        except OSError:
-            size_bytes = 0
-        return str(rel).replace("\\", "/"), original_name, size_bytes
+            with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024, mode="w+b") as tmp:
+                with zipfile.ZipFile(tmp, mode="w", compression=zipfile.ZIP_STORED) as zf:
+                    with zf.open(arcname, "w") as dst:
+                        while True:
+                            chunk = file_storage.stream.read(8 * 1024 * 1024)
+                            if not chunk:
+                                break
+                            dst.write(chunk)
+                tmp.seek(0)
+                size_bytes = storage_put(key, tmp, "application/zip")
+            return key, original_name, int(size_bytes)
+        file_storage.stream.seek(0, os.SEEK_SET)
+        size_bytes = storage_put(key, file_storage.stream, _content_type_for_filename(safe or original_name))
+        return key, original_name, int(size_bytes)
 
     def store_support_upload(file_storage, msg_id: int) -> tuple[str, str, int]:
         return store_support_upload_in_dir(file_storage, Path("support") / str(msg_id))
@@ -1222,10 +1350,7 @@ def create_app() -> Flask:
             select(SupportComplaintMedia).where(SupportComplaintMedia.message_id.in_(message_ids))
         ).all()
         for r in rows:
-            try:
-                (UPLOAD_DIR / r.stored_filename).unlink(missing_ok=True)
-            except OSError:
-                pass
+            storage_delete(r.stored_filename)
             db().delete(r)
 
     def delete_support_worklog_media(log_ids: list[int]) -> None:
@@ -1235,10 +1360,7 @@ def create_app() -> Flask:
             select(SupportWorkLogMedia).where(SupportWorkLogMedia.work_log_id.in_(log_ids))
         ).all()
         for r in rows:
-            try:
-                (UPLOAD_DIR / r.stored_filename).unlink(missing_ok=True)
-            except OSError:
-                pass
+            storage_delete(r.stored_filename)
             db().delete(r)
 
     def delete_support_attachments(message_ids: list[int]) -> None:
@@ -1246,10 +1368,7 @@ def create_app() -> Flask:
             return
         atts = db().scalars(select(SupportAttachment).where(SupportAttachment.message_id.in_(message_ids))).all()
         for att in atts:
-            try:
-                (UPLOAD_DIR / att.stored_filename).unlink(missing_ok=True)
-            except OSError:
-                pass
+            storage_delete(att.stored_filename)
             db().delete(att)
 
     def delete_support_work_logs(message_ids: list[int]) -> None:
@@ -1267,14 +1386,14 @@ def create_app() -> Flask:
         if asset is not None and asset.kind == "doc" and (asset.category or "") == "download":
             if current_client() is None and current_user() is None:
                 abort(404)
-        return send_from_directory(UPLOAD_DIR, filename)
+        return storage_send(filename, as_attachment=False, download_name=None)
 
     @app.get("/favicon.ico")
     def favicon():
         asset = get_asset_by_slot("site_favicon")
         if asset is None:
             abort(404)
-        return send_from_directory(UPLOAD_DIR, asset.stored_filename)
+        return storage_send(asset.stored_filename, as_attachment=False, download_name=None)
 
     @app.before_request
     def _support_bot_guard() -> None:
@@ -1524,11 +1643,10 @@ def create_app() -> Flask:
             abort(404)
         if (asset.category or "") == "download" and current_client() is None:
             return redirect(url_for("login", next=request.path))
-        return send_from_directory(
-            UPLOAD_DIR,
+        return storage_send(
             asset.stored_filename,
             as_attachment=True,
-            download_name=asset.original_filename,
+            download_name=_download_name(asset.original_filename, asset.stored_filename),
         )
 
     @app.get("/downloads")
@@ -1551,11 +1669,10 @@ def create_app() -> Flask:
         asset = db().get(Asset, asset_id)
         if asset is None or asset.kind != "doc" or (asset.category or "") != "download":
             abort(404)
-        return send_from_directory(
-            UPLOAD_DIR,
+        return storage_send(
             asset.stored_filename,
             as_attachment=True,
-            download_name=asset.original_filename,
+            download_name=_download_name(asset.original_filename, asset.stored_filename),
         )
 
     @app.get("/register")
@@ -2245,10 +2362,7 @@ def create_app() -> Flask:
                 return redirect(next_url or url_for("admin_assets"))
             existing = db().scalar(select(Asset).where(Asset.slot_key == slot_key))
             if existing is not None:
-                try:
-                    (UPLOAD_DIR / existing.stored_filename).unlink(missing_ok=True)
-                except OSError:
-                    pass
+                storage_delete(existing.stored_filename)
                 existing.kind = "image"
                 existing.category = None
                 existing.stored_filename = stored
@@ -2316,10 +2430,7 @@ def create_app() -> Flask:
         asset = db().get(Asset, asset_id)
         if asset is None:
             abort(404)
-        try:
-            (UPLOAD_DIR / asset.stored_filename).unlink(missing_ok=True)
-        except OSError:
-            pass
+        storage_delete(asset.stored_filename)
         db().delete(asset)
         flash("Файл удалён.", "info")
         return redirect(next_url or url_for("admin_assets"))
@@ -2481,11 +2592,10 @@ def create_app() -> Flask:
         asset = db().get(Asset, asset_id)
         if asset is None or asset.kind != "doc" or (asset.category or "") != "download":
             abort(404)
-        return send_from_directory(
-            UPLOAD_DIR,
+        return storage_send(
             asset.stored_filename,
             as_attachment=True,
-            download_name=asset.original_filename,
+            download_name=_download_name(asset.original_filename, asset.stored_filename),
         )
 
     @app.post("/admin/downloads/upload")
@@ -2528,10 +2638,7 @@ def create_app() -> Flask:
         asset = db().get(Asset, asset_id)
         if asset is None or asset.kind != "doc" or (asset.category or "") != "download":
             abort(404)
-        try:
-            (UPLOAD_DIR / asset.stored_filename).unlink(missing_ok=True)
-        except OSError:
-            pass
+        storage_delete(asset.stored_filename)
         db().delete(asset)
         flash("Файл удалён.", "info")
         return redirect(next_url or url_for("admin_downloads"))
@@ -2935,10 +3042,7 @@ def create_app() -> Flask:
         if m is None:
             abort(404)
         next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
-        try:
-            (UPLOAD_DIR / m.stored_filename).unlink(missing_ok=True)
-        except OSError:
-            pass
+        storage_delete(m.stored_filename)
         db().delete(m)
         flash("Файл удалён.", "info")
         return redirect(next_url)
@@ -2949,8 +3053,7 @@ def create_app() -> Flask:
         m = db().get(SupportWorkLogMedia, media_id)
         if m is None:
             abort(404)
-        return send_from_directory(
-            UPLOAD_DIR,
+        return storage_send(
             m.stored_filename,
             as_attachment=True,
             download_name=_download_name(m.original_filename, m.stored_filename),
@@ -2962,8 +3065,7 @@ def create_app() -> Flask:
         m = db().get(SupportWorkLogMedia, media_id)
         if m is None:
             abort(404)
-        return send_from_directory(
-            UPLOAD_DIR,
+        return storage_send(
             m.stored_filename,
             as_attachment=False,
             download_name=_download_name(m.original_filename, m.stored_filename),
@@ -3063,10 +3165,7 @@ def create_app() -> Flask:
         if m is None:
             abort(404)
         next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
-        try:
-            (UPLOAD_DIR / m.stored_filename).unlink(missing_ok=True)
-        except OSError:
-            pass
+        storage_delete(m.stored_filename)
         db().delete(m)
         flash("Файл удалён.", "info")
         return redirect(next_url)
@@ -3077,8 +3176,7 @@ def create_app() -> Flask:
         m = db().get(SupportComplaintMedia, media_id)
         if m is None:
             abort(404)
-        return send_from_directory(
-            UPLOAD_DIR,
+        return storage_send(
             m.stored_filename,
             as_attachment=True,
             download_name=_download_name(m.original_filename, m.stored_filename),
@@ -3090,8 +3188,7 @@ def create_app() -> Flask:
         m = db().get(SupportComplaintMedia, media_id)
         if m is None:
             abort(404)
-        return send_from_directory(
-            UPLOAD_DIR,
+        return storage_send(
             m.stored_filename,
             as_attachment=False,
             download_name=_download_name(m.original_filename, m.stored_filename),
@@ -3145,12 +3242,7 @@ def create_app() -> Flask:
         download_name = att.original_filename or "attachment"
         if (att.stored_filename or "").lower().endswith(".zip") and not download_name.lower().endswith(".zip"):
             download_name = f"{download_name}.zip"
-        return send_from_directory(
-            UPLOAD_DIR,
-            att.stored_filename,
-            as_attachment=True,
-            download_name=download_name,
-        )
+        return storage_send(att.stored_filename, as_attachment=True, download_name=download_name)
 
     @app.post("/admin/messages/attachments/<int:att_id>/delete")
     @login_required
@@ -3159,10 +3251,7 @@ def create_app() -> Flask:
         if att is None:
             abort(404)
         next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
-        try:
-            (UPLOAD_DIR / att.stored_filename).unlink(missing_ok=True)
-        except OSError:
-            pass
+        storage_delete(att.stored_filename)
         db().delete(att)
         flash("Файл удалён.", "info")
         return redirect(next_url)
