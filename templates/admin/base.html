@@ -45,6 +45,7 @@
             <a class="nav-link {% if request.path.startswith('/admin/content') %}active{% endif %}" href="{{ url_for('admin_content_list') }}">Тексты</a>
             <a class="nav-link {% if request.path.startswith('/admin/assets') %}active{% endif %}" href="{{ url_for('admin_assets') }}">Файлы</a>
             <a class="nav-link {% if request.path.startswith('/admin/messages') %}active{% endif %}" href="{{ url_for('admin_messages') }}">Заявки</a>
+            <a class="nav-link {% if request.path.startswith('/admin/logs/users') %}active{% endif %}" href="{{ url_for('admin_logs_users') }}">Журнал пользователей</a>
             <a class="nav-link {% if request.path.startswith('/admin/features') %}active{% endif %}" href="{{ url_for('admin_features_list') }}">Возможности</a>
             <a class="nav-link {% if request.path.startswith('/admin/settings') %}active{% endif %}" href="{{ url_for('admin_settings') }}">Настройки</a>
           </div>

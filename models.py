@@ -83,6 +83,18 @@ class SupportMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class UserEventLog(Base):
+    __tablename__ = "user_event_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    event: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    ip: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    user_agent: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    details: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class SupportAttachment(Base):
     __tablename__ = "support_attachments"
 

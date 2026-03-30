@@ -43,6 +43,7 @@ from models import (
     SupportMessage,
     SupportWorkLog,
     SupportWorkLogMedia,
+    UserEventLog,
 )
 
 
@@ -844,6 +845,35 @@ def create_app() -> Flask:
             return None
         return next_url
 
+    def remote_ip() -> str:
+        return (
+            (request.headers.get("CF-Connecting-IP") or "").strip()
+            or (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+            or (request.remote_addr or "").strip()
+        )
+
+    def log_user_event(event: str, user_id: int | None, details: object | None = None) -> None:
+        payload = ""
+        if details is None:
+            payload = ""
+        elif isinstance(details, str):
+            payload = details
+        else:
+            try:
+                payload = json.dumps(details, ensure_ascii=False)
+            except TypeError:
+                payload = str(details)
+        db().add(
+            UserEventLog(
+                user_id=user_id,
+                event=(event or "").strip(),
+                ip=remote_ip(),
+                user_agent=(request.headers.get("User-Agent") or ""),
+                details=payload,
+                created_at=datetime.utcnow(),
+            )
+        )
+
     def _messages_like(value: str) -> str:
         return f"%{(value or '').replace('%', '\\%').replace('_', '\\_')}%"
 
@@ -1292,6 +1322,7 @@ def create_app() -> Flask:
         )
         db().add(msg)
         db().flush()
+        log_user_event("support_submit", user.id, {"message_id": msg.id})
 
         files_note = (request.form.get("files_note") or "").strip()
         files = request.files.getlist("files")
@@ -1371,6 +1402,7 @@ def create_app() -> Flask:
         db().add(u)
         db().flush()
         session["user_id"] = u.id
+        log_user_event("register", u.id, {"username": u.username})
         flash("Регистрация успешна.", "success")
         next_url = safe_next_url(request.args.get("next"))
         return redirect(next_url or url_for("cabinet"))
@@ -1392,13 +1424,18 @@ def create_app() -> Flask:
             flash("Неверный логин или пароль.", "danger")
             return redirect(url_for("login"))
         session["user_id"] = u.id
+        log_user_event("login", u.id, {"username": u.username})
         flash("Вход выполнен.", "success")
         next_url = safe_next_url(request.args.get("next"))
         return redirect(next_url or url_for("cabinet"))
 
     @app.post("/logout")
     def logout():
-        session.pop("user_id", None)
+        uid = session.pop("user_id", None)
+        try:
+            log_user_event("logout", int(uid) if uid else None, None)
+        except ValueError:
+            log_user_event("logout", None, None)
         flash("Вы вышли из личного кабинета.", "success")
         next_url = safe_next_url(request.args.get("next"))
         return redirect(next_url or url_for("index"))
@@ -2683,6 +2720,76 @@ def create_app() -> Flask:
         user.password_hash = generate_password_hash(new)
         flash("Пароль обновлён.", "success")
         return redirect(url_for("admin_settings"))
+
+    @app.get("/admin/logs/users")
+    @login_required
+    def admin_logs_users():
+        q = (request.args.get("q") or "").strip()
+        event = (request.args.get("event") or "all").strip()
+        date_from = (request.args.get("date_from") or "").strip()
+        date_to = (request.args.get("date_to") or "").strip()
+        try:
+            page = max(1, int(request.args.get("page") or "1"))
+        except ValueError:
+            page = 1
+        per_page = 100
+
+        criteria: list[object] = []
+        if event and event != "all":
+            criteria.append(UserEventLog.event == event)
+        dt_from = _parse_date(date_from)
+        if dt_from is not None:
+            criteria.append(UserEventLog.created_at >= dt_from)
+        dt_to = _parse_date(date_to)
+        if dt_to is not None:
+            dt0 = dt_to.replace(hour=0, minute=0, second=0, microsecond=0)
+            criteria.append(UserEventLog.created_at < dt0 + timedelta(days=1))
+        if q:
+            user_ids_like = db().scalars(select(User.id).where(_messages_ci_like(User.username, q))).all()
+            crit = [
+                _messages_ci_like(UserEventLog.details, q),
+                _messages_ci_like(UserEventLog.ip, q),
+                _messages_ci_like(UserEventLog.user_agent, q),
+            ]
+            if user_ids_like:
+                crit.append(UserEventLog.user_id.in_([int(x) for x in user_ids_like]))
+            criteria.append(or_(*crit))
+        where_clause = and_(*criteria) if criteria else None
+
+        event_counts_rows = db().execute(select(UserEventLog.event, func.count()).group_by(UserEventLog.event)).all()
+        event_counts = {str(e or ""): int(c or 0) for e, c in event_counts_rows}
+
+        count_stmt = select(func.count()).select_from(UserEventLog)
+        if where_clause is not None:
+            count_stmt = count_stmt.where(where_clause)
+        total = int(db().scalar(count_stmt) or 0)
+        pages = max(1, (total + per_page - 1) // per_page)
+        page = min(page, pages)
+
+        stmt = select(UserEventLog)
+        if where_clause is not None:
+            stmt = stmt.where(where_clause)
+        stmt = stmt.order_by(UserEventLog.created_at.desc()).limit(per_page).offset((page - 1) * per_page)
+        rows = db().scalars(stmt).all()
+
+        user_ids = sorted({int(r.user_id) for r in rows if r.user_id is not None})
+        users_map: dict[int, str] = {}
+        if user_ids:
+            users_map = {int(uid): uname for uid, uname in db().execute(select(User.id, User.username).where(User.id.in_(user_ids))).all()}
+
+        return render_template(
+            "admin/log_users.html",
+            rows=rows,
+            users_map=users_map,
+            q=q,
+            event=event,
+            event_counts=event_counts,
+            date_from=date_from,
+            date_to=date_to,
+            page=page,
+            pages=pages,
+            total=total,
+        )
 
     return app
 

@@ -1,0 +1,118 @@
+{% extends "admin/base.html" %}
+{% block title %}Админка — Журнал пользователей{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+  <h1 class="h4 mb-0">Журнал пользователей</h1>
+  <div class="text-secondary small">Записей: {{ total }}</div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" action="{{ url_for('admin_logs_users') }}" class="row g-2 align-items-end">
+      <div class="col-12 col-lg-5">
+        <label class="form-label mb-1">Поиск</label>
+        <input class="form-control" name="q" value="{{ q }}" placeholder="логин, ip, детали">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label mb-1">Дата от</label>
+        <input class="form-control" type="date" name="date_from" value="{{ date_from }}">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label mb-1">Дата до</label>
+        <input class="form-control" type="date" name="date_to" value="{{ date_to }}">
+      </div>
+      <div class="col-12 col-lg-2">
+        <label class="form-label mb-1">Событие</label>
+        <select class="form-select" name="event">
+          <option value="all" {% if event == "all" %}selected{% endif %}>Все</option>
+          <option value="register" {% if event == "register" %}selected{% endif %}>register</option>
+          <option value="login" {% if event == "login" %}selected{% endif %}>login</option>
+          <option value="logout" {% if event == "logout" %}selected{% endif %}>logout</option>
+          <option value="support_submit" {% if event == "support_submit" %}selected{% endif %}>support_submit</option>
+        </select>
+      </div>
+      <div class="col-12 col-lg-1 d-grid">
+        <button class="btn btn-primary" type="submit">Ок</button>
+      </div>
+      <div class="col-12">
+        <div class="d-flex flex-wrap gap-2">
+          {% set total_all = 0 %}
+          {% for _k, _v in event_counts.items() %}
+            {% set total_all = total_all + _v %}
+          {% endfor %}
+          <a class="btn btn-outline-secondary btn-sm {% if event == 'all' %}active{% endif %}" href="{{ url_for('admin_logs_users', q=q, event='all', date_from=date_from, date_to=date_to) }}">
+            Все ({{ total_all }})
+          </a>
+          <a class="btn btn-outline-secondary btn-sm {% if event == 'register' %}active{% endif %}" href="{{ url_for('admin_logs_users', q=q, event='register', date_from=date_from, date_to=date_to) }}">
+            register ({{ event_counts.get('register', 0) }})
+          </a>
+          <a class="btn btn-outline-secondary btn-sm {% if event == 'login' %}active{% endif %}" href="{{ url_for('admin_logs_users', q=q, event='login', date_from=date_from, date_to=date_to) }}">
+            login ({{ event_counts.get('login', 0) }})
+          </a>
+          <a class="btn btn-outline-secondary btn-sm {% if event == 'logout' %}active{% endif %}" href="{{ url_for('admin_logs_users', q=q, event='logout', date_from=date_from, date_to=date_to) }}">
+            logout ({{ event_counts.get('logout', 0) }})
+          </a>
+          <a class="btn btn-outline-secondary btn-sm {% if event == 'support_submit' %}active{% endif %}" href="{{ url_for('admin_logs_users', q=q, event='support_submit', date_from=date_from, date_to=date_to) }}">
+            support_submit ({{ event_counts.get('support_submit', 0) }})
+          </a>
+          <a class="btn btn-link btn-sm" href="{{ url_for('admin_logs_users') }}">Сбросить</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 170px;">Дата</th>
+          <th style="width: 200px;">Пользователь</th>
+          <th style="width: 150px;">Событие</th>
+          <th style="width: 150px;">IP</th>
+          <th>Детали</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td class="text-secondary">{{ r.created_at.strftime("%d.%m.%Y %H:%M:%S") }}</td>
+            <td>
+              {% if r.user_id %}
+                <span class="fw-semibold">{{ users_map.get(r.user_id, "user#" ~ r.user_id) }}</span>
+              {% else %}
+                <span class="text-secondary">—</span>
+              {% endif %}
+            </td>
+            <td><span class="badge text-bg-light">{{ r.event }}</span></td>
+            <td class="font-monospace small">{{ r.ip }}</td>
+            <td class="small text-truncate" style="max-width: 620px;" title="{{ r.details }}">{{ r.details or "—" }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" class="text-center text-secondary py-4">Записей пока нет.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if pages > 1 %}
+  <nav class="d-flex align-items-center justify-content-between mt-3" aria-label="Навигация по страницам">
+    <div class="text-secondary small">
+      Страница {{ page }} из {{ pages }}
+    </div>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('admin_logs_users', q=q, event=event, date_from=date_from, date_to=date_to, page=page-1) }}">Назад</a>
+      </li>
+      <li class="page-item {% if page >= pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('admin_logs_users', q=q, event=event, date_from=date_from, date_to=date_to, page=page+1) }}">Вперёд</a>
+      </li>
+    </ul>
+  </nav>
+{% endif %}
+{% endblock %}
+
