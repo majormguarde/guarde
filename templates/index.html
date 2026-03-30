@@ -24,19 +24,24 @@
     <div class="collapse navbar-collapse" id="navbarMain">
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
         <li class="nav-item"><a class="nav-link" href="#features">Возможности</a></li>
-        <li class="nav-item"><a class="nav-link" href="#registry">Реестр ПО</a></li>
+        {% if client_user %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('downloads') }}">Загрузки</a></li>
+        {% endif %}
         <li class="nav-item"><a class="nav-link" href="#documents">Документы</a></li>
         <li class="nav-item"><a class="nav-link" href="#support">Поддержка</a></li>
       </ul>
-      <div class="d-flex ms-lg-3">
+      <div class="d-flex ms-lg-3 gap-2">
         {% if client_user %}
-          <a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('cabinet') }}">Кабинет</a>
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('cabinet') }}">Кабинет</a>
           <form method="post" action="{{ url_for('logout', next=request.path) }}">
             <button class="btn btn-outline-secondary btn-sm" type="submit">Выйти</button>
           </form>
         {% else %}
-          <a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('login', next=request.path) }}">Войти</a>
-          <a class="btn btn-primary btn-sm" href="{{ url_for('register', next=request.path) }}">Регистрация</a>
+          <a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center p-2" href="{{ url_for('login', next=request.path) }}" title="Войти" aria-label="Войти">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path fill="currentColor" d="M10 17a1 1 0 0 1 0-2h5a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-5a1 1 0 0 1 0-2h5a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5Zm.3-4.7a1 1 0 0 1 0-1.4l1.9-1.9H4a1 1 0 0 1 0-2h8.2L10.3 5.1a1 1 0 1 1 1.4-1.4l3.6 3.6a1 1 0 0 1 0 1.4l-3.6 3.6a1 1 0 0 1-1.4 0Z"/>
+            </svg>
+          </a>
         {% endif %}
         <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center p-2" href="/admin" title="Админка" aria-label="Админка">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -229,12 +234,14 @@
     </svg>
   </button>
 {% endif %}
-<button class="sticky-registry-btn sticky-support-btn" type="button" data-support-open aria-controls="supportOffcanvas" aria-label="Оставить заявку">
-  <span class="sticky-registry-btn__label">Заявка</span>
-  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-    <path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5L4 8V6l8 5 8-5v2Z"/>
-  </svg>
-</button>
+{% if client_user %}
+  <button class="sticky-registry-btn sticky-support-btn" type="button" data-support-open aria-controls="supportOffcanvas" aria-label="Оставить заявку">
+    <span class="sticky-registry-btn__label">Заявка</span>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5L4 8V6l8 5 8-5v2Z"/>
+    </svg>
+  </button>
+{% endif %}
 <a class="sticky-calc-btn" href="http://31.148.31.130/calc/" target="_blank" rel="noopener noreferrer" aria-label="Калькулятор">
   <span class="sticky-calc-btn__label">Калькулятор</span>
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -264,7 +271,8 @@
           {% if turnstile_site_key %}
             <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
           {% endif %}
-          <form method="post" action="{{ url_for('support_submit') }}" enctype="multipart/form-data" id="supportForm">
+          <form method="post" action="{{ url_for('support_submit') }}" enctype="multipart/form-data" id="supportForm" data-submit-guard>
+            <input type="hidden" name="submit_token" value="{{ support_submit_token }}">
             <div class="row g-3">
               <div class="col-12 col-md-6">
                 <label class="form-label">Ваше имя</label>
@@ -549,18 +557,18 @@
     </div>
 
     <div class="docs-wrap">
-      {% if prices or registry_docs or other_docs %}
-        {% if prices %}
+      {% if document_groups %}
+        {% for g in document_groups %}
           <div class="docs-group">
             <div class="docs-group-title">
-              <span class="badge text-bg-success">price</span>
-              <span class="ms-2 fw-semibold">Прайс</span>
+              <span class="badge {% if g.key in ['price', 'registry'] %}text-bg-success{% else %}text-bg-primary{% endif %}">{{ g.key }}</span>
+              <span class="ms-2 fw-semibold">{{ g.title }}</span>
             </div>
             <div class="list-group list-group-flush">
-              {% for doc in prices %}
+              {% for doc in g.docs %}
                 <a class="list-group-item list-group-item-action docs-item" href="{{ url_for('download_file', asset_id=doc.id) }}">
                   <div class="d-flex align-items-center gap-3">
-                    <span class="icon-tile icon-tile-green">
+                    <span class="icon-tile {% if g.key in ['price', 'registry'] %}icon-tile-green{% else %}icon-tile-blue{% endif %}">
                       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                         <path fill="currentColor" d="M6 2h9l3 3v17H6V2Zm2 2v16h8V6h-2V4H8Z"/>
                       </svg>
@@ -579,69 +587,7 @@
               {% endfor %}
             </div>
           </div>
-        {% endif %}
-
-        {% if other_docs %}
-          <div class="docs-group">
-            <div class="docs-group-title">
-              <span class="badge text-bg-primary">doc</span>
-              <span class="ms-2 fw-semibold">Документы</span>
-            </div>
-            <div class="list-group list-group-flush">
-              {% for doc in other_docs %}
-                <a class="list-group-item list-group-item-action docs-item" href="{{ url_for('download_file', asset_id=doc.id) }}">
-                  <div class="d-flex align-items-center gap-3">
-                    <span class="icon-tile icon-tile-blue">
-                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                        <path fill="currentColor" d="M6 2h9l3 3v17H6V2Zm2 2v16h8V6h-2V4H8Z"/>
-                      </svg>
-                    </span>
-                    <div class="flex-grow-1">
-                      <div class="fw-semibold">{{ doc.title or doc.original_filename }}</div>
-                      {% if doc.description %}<div class="text-secondary small">{{ doc.description }}</div>{% endif %}
-                    </div>
-                    <span class="text-secondary" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="18" height="18">
-                        <path fill="currentColor" d="M12 3v10.2l3.6-3.6 1.4 1.4L12 17l-5-5 1.4-1.4L12 13.2V3h0ZM5 19h14v2H5v-2Z"/>
-                      </svg>
-                    </span>
-                  </div>
-                </a>
-              {% endfor %}
-            </div>
-          </div>
-        {% endif %}
-
-        {% if registry_docs %}
-          <div class="docs-group">
-            <div class="docs-group-title">
-              <span class="badge text-bg-success">registry</span>
-              <span class="ms-2 fw-semibold">Реестр ПО РФ</span>
-            </div>
-            <div class="list-group list-group-flush">
-              {% for doc in registry_docs %}
-                <a class="list-group-item list-group-item-action docs-item" href="{{ url_for('download_file', asset_id=doc.id) }}">
-                  <div class="d-flex align-items-center gap-3">
-                    <span class="icon-tile icon-tile-green">
-                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                        <path fill="currentColor" d="M6 2h9l3 3v17H6V2Zm2 2v16h8V6h-2V4H8Z"/>
-                      </svg>
-                    </span>
-                    <div class="flex-grow-1">
-                      <div class="fw-semibold">{{ doc.title or doc.original_filename }}</div>
-                      {% if doc.description %}<div class="text-secondary small">{{ doc.description }}</div>{% endif %}
-                    </div>
-                    <span class="text-secondary" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="18" height="18">
-                        <path fill="currentColor" d="M12 3v10.2l3.6-3.6 1.4 1.4L12 17l-5-5 1.4-1.4L12 13.2V3h0ZM5 19h14v2H5v-2Z"/>
-                      </svg>
-                    </span>
-                  </div>
-                </a>
-              {% endfor %}
-            </div>
-          </div>
-        {% endif %}
+        {% endfor %}
       {% else %}
         <div class="text-center text-secondary py-5">Документы пока не добавлены. Загрузите их в админке.</div>
       {% endif %}
@@ -659,7 +605,15 @@
 
       <div class="col-12">
         <div class="d-grid">
-          <button class="btn btn-primary btn-lg" type="button" data-support-open aria-controls="supportOffcanvas">Оставить заявку</button>
+          {% if client_user %}
+            <button class="btn btn-primary btn-lg" type="button" data-support-open aria-controls="supportOffcanvas">Оставить заявку</button>
+          {% else %}
+            <div class="alert alert-warning mb-0" role="alert">
+              Чтобы оставить заявку, войдите в личный кабинет или зарегистрируйтесь:
+              <a class="alert-link" href="{{ url_for('login', next=url_for('index') + '#support') }}">Войти</a> /
+              <a class="alert-link" href="{{ url_for('register', next=url_for('index') + '#support') }}">Регистрация</a>
+            </div>
+          {% endif %}
         </div>
       </div>
 
@@ -674,7 +628,7 @@
               </div>
               <div>
                 <div class="text-white-50 small">Горячая линия</div>
-                <div class="h5 mb-0">{{ blocks["contacts_phone"].body }}</div>
+                <div class="h5 mb-0">{{ blocks["contacts_phone"].body | e | replace('\n', '<br>') | safe }}</div>
               </div>
             </div>
           </div>
@@ -687,7 +641,7 @@
               </div>
               <div>
                 <div class="text-white-50 small">Электронная почта</div>
-                <div class="h5 mb-0">{{ blocks["contacts_email"].body }}</div>
+                <div class="h5 mb-0">{{ blocks["contacts_email"].body | e | replace('\n', '<br>') | safe }}</div>
               </div>
             </div>
           </div>
@@ -700,7 +654,7 @@
               </div>
               <div>
                 <div class="text-white-50 small">Адрес</div>
-                <div class="h6 mb-0">{{ blocks["contacts_address"].body }}</div>
+                <div class="h6 mb-0">{{ blocks["contacts_address"].body | e | replace('\n', '<br>') | safe }}</div>
               </div>
             </div>
           </div>
@@ -714,7 +668,7 @@
   <div class="container py-4">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-2">
       <div class="text-white-50 small">© {{ year }} {{ blocks["brand_full"].body }}. Все права защищены.</div>
-      <div class="text-white-50 small">{{ blocks["contacts_address"].body }}</div>
+      <div class="text-white-50 small">{{ blocks["contacts_address"].body | e | replace('\n', '<br>') | safe }}</div>
     </div>
   </div>
 </footer>

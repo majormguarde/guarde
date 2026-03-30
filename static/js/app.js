@@ -91,6 +91,27 @@
     });
   });
 
+  document.addEventListener(
+    "submit",
+    (ev) => {
+      const form = ev.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      if (!form.hasAttribute("data-submit-guard")) return;
+      if (form.dataset.submitted === "1") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+      form.dataset.submitted = "1";
+      form.setAttribute("aria-busy", "true");
+      form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((btn) => {
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+      });
+    },
+    true
+  );
+
   const panels = document.querySelectorAll(".hero-banner-panel");
   if (panels.length) {
     const isDesktop = window.matchMedia("(min-width: 992px)").matches;

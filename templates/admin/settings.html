@@ -3,13 +3,22 @@
 {% block title %}Админка — Настройки{% endblock %}
 
 {% block content %}
-<h1 class="h4 mb-3">Настройки</h1>
+{% set tab = tab or "branding" %}
+<h1 class="h4 mb-3">
+  Настройки —
+  {% if tab == "branding" %}Брендинг{% endif %}
+  {% if tab == "password" %}Смена пароля{% endif %}
+  {% if tab == "requisites" %}Реквизиты{% endif %}
+  {% if tab == "contact" %}Связь{% endif %}
+  {% if tab == "options" %}Опции{% endif %}
+</h1>
 
+{% if tab == "branding" %}
 <div class="row g-3">
-  <div class="col-12 col-lg-6">
+  <div class="col-12">
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
-        <h2 class="h6 mb-3">Брендинг</h2>
+        <h2 class="h6 mb-3" id="branding">Брендинг</h2>
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <div class="fw-semibold mb-2">Логотип</div>
@@ -21,6 +30,7 @@
               {% endif %}
             </div>
             <form class="mt-2" method="post" action="{{ url_for('admin_assets_upload') }}" enctype="multipart/form-data">
+              <input type="hidden" name="next" value="{{ request.full_path }}">
               <input type="hidden" name="kind" value="image">
               <input type="hidden" name="slot_key" value="site_logo">
               <div class="input-group">
@@ -40,6 +50,7 @@
               {% endif %}
             </div>
             <form class="mt-2" method="post" action="{{ url_for('admin_assets_upload') }}" enctype="multipart/form-data">
+              <input type="hidden" name="next" value="{{ request.full_path }}">
               <input type="hidden" name="kind" value="image">
               <input type="hidden" name="slot_key" value="site_favicon">
               <div class="input-group">
@@ -50,22 +61,138 @@
             </form>
           </div>
         </div>
+        <hr class="my-4">
+        <form method="post" action="{{ url_for('admin_settings_branding') }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <div class="mb-3">
+            <label class="form-label">Название бренда</label>
+            <input class="form-control" name="brand_full" value="{{ blocks.get('brand_full').body if blocks.get('brand_full') else '' }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Слоган</label>
+            <input class="form-control" name="slogan" value="{{ blocks.get('slogan').body if blocks.get('slogan') else '' }}">
+          </div>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </form>
       </div>
     </div>
+  </div>
+  <div class="col-12">
     <div class="card border-0 shadow-sm">
       <div class="card-body">
-        <h2 class="h6 mb-3">Смена пароля</h2>
+        <div class="text-secondary small">
+          Подсказка: изображения слотов — hero_image, registry_image, product_image, features_image, site_logo, site_favicon.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif tab == "password" %}
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3" id="password">Аккаунт администратора</h2>
         <form method="post" action="{{ url_for('admin_settings_password') }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <div class="mb-3">
+            <label class="form-label">Логин</label>
+            <input class="form-control" name="new_username" value="{{ admin_user.username if admin_user else '' }}" required>
+          </div>
           <div class="mb-3">
             <label class="form-label">Текущий пароль</label>
             <input class="form-control" name="current_password" type="password" autocomplete="current-password" required>
           </div>
           <div class="mb-3">
             <label class="form-label">Новый пароль</label>
-            <input class="form-control" name="new_password" type="password" autocomplete="new-password" required>
-            <div class="form-text">Минимум 8 символов.</div>
+            <input class="form-control" name="new_password" type="password" autocomplete="new-password">
+            <div class="form-text">Оставьте пустым, если менять пароль не нужно. Минимум 8 символов.</div>
           </div>
-          <button class="btn btn-primary" type="submit">Обновить</button>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif tab == "requisites" %}
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-3" id="requisites">Реквизиты</h2>
+        <form method="post" action="{{ url_for('admin_settings_requisites') }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <div class="mb-3">
+            <label class="form-label">Организация</label>
+            <input class="form-control" name="requisites_company" value="{{ blocks.get('requisites_company').body if blocks.get('requisites_company') else '' }}">
+          </div>
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label">ИНН</label>
+              <input class="form-control" name="requisites_inn" value="{{ blocks.get('requisites_inn').body if blocks.get('requisites_inn') else '' }}">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">КПП</label>
+              <input class="form-control" name="requisites_kpp" value="{{ blocks.get('requisites_kpp').body if blocks.get('requisites_kpp') else '' }}">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">ОГРН</label>
+              <input class="form-control" name="requisites_ogrn" value="{{ blocks.get('requisites_ogrn').body if blocks.get('requisites_ogrn') else '' }}">
+            </div>
+          </div>
+          <div class="mb-3 mt-2">
+            <label class="form-label">Юридический адрес</label>
+            <input class="form-control" name="requisites_address" value="{{ blocks.get('requisites_address').body if blocks.get('requisites_address') else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Банк</label>
+            <input class="form-control" name="requisites_bank" value="{{ blocks.get('requisites_bank').body if blocks.get('requisites_bank') else '' }}">
+          </div>
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label">БИК</label>
+              <input class="form-control" name="requisites_bik" value="{{ blocks.get('requisites_bik').body if blocks.get('requisites_bik') else '' }}">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Р/с</label>
+              <input class="form-control" name="requisites_rs" value="{{ blocks.get('requisites_rs').body if blocks.get('requisites_rs') else '' }}">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">К/с</label>
+              <input class="form-control" name="requisites_ks" value="{{ blocks.get('requisites_ks').body if blocks.get('requisites_ks') else '' }}">
+            </div>
+          </div>
+          <div class="mt-3">
+            <button class="btn btn-primary" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif tab == "contact" %}
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3" id="contact">Связь</h2>
+        <form method="post" action="{{ url_for('admin_settings_contact') }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <div class="mb-3">
+            <label class="form-label">Телефон(ы)</label>
+            <textarea class="form-control" name="contacts_phone" rows="3">{{ blocks.get('contacts_phone').body if blocks.get('contacts_phone') else '' }}</textarea>
+            <div class="form-text">Можно несколько строк.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">E-mail(ы)</label>
+            <textarea class="form-control" name="contacts_email" rows="3">{{ blocks.get('contacts_email').body if blocks.get('contacts_email') else '' }}</textarea>
+            <div class="form-text">Можно несколько строк.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Адрес</label>
+            <textarea class="form-control" name="contacts_address" rows="2">{{ blocks.get('contacts_address').body if blocks.get('contacts_address') else '' }}</textarea>
+          </div>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
         </form>
       </div>
     </div>
@@ -73,7 +200,73 @@
   <div class="col-12 col-lg-6">
     <div class="card border-0 shadow-sm">
       <div class="card-body">
-        <h2 class="h6 mb-3">Подсказки</h2>
+        <h3 class="h6 mb-3">Администратор</h3>
+        <form method="post" action="{{ url_for('admin_settings_admin_contact') }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label">Имя</label>
+              <input class="form-control" name="admin_first_name" value="{{ admin_user.first_name if admin_user else '' }}">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Фамилия</label>
+              <input class="form-control" name="admin_last_name" value="{{ admin_user.last_name if admin_user else '' }}">
+            </div>
+          </div>
+          <div class="mb-3 mt-2">
+            <label class="form-label">Телефон(ы)</label>
+            <textarea class="form-control" name="admin_phone" rows="2">{{ admin_user.phone if admin_user else '' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">E-mail(ы)</label>
+            <textarea class="form-control" name="admin_email" rows="2">{{ admin_user.email if admin_user else '' }}</textarea>
+          </div>
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label">WhatsApp</label>
+              <input class="form-control" name="admin_whatsapp" value="{{ admin_user.whatsapp if admin_user else '' }}">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Telegram</label>
+              <input class="form-control" name="admin_telegram" value="{{ admin_user.telegram if admin_user else '' }}">
+            </div>
+          </div>
+          <div class="mt-3">
+            <button class="btn btn-primary" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif tab == "options" %}
+<div class="row g-3">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3" id="options">Опции</h2>
+        <form method="post" action="{{ url_for('admin_settings_options') }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="optionTurnstileEnabled" name="option_turnstile_enabled" {% if turnstile_option_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="optionTurnstileEnabled">Включить Turnstile</label>
+            <div class="form-text">Turnstile работает только если настроены ключи в окружении.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Антидубль отправки форм (сек)</label>
+            <input class="form-control" type="number" min="0" max="300" name="option_submit_min_interval_seconds" value="{{ blocks.get('option_submit_min_interval_seconds').body if blocks.get('option_submit_min_interval_seconds') else '' }}">
+          </div>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </form>
+
+        <hr class="my-4">
+        <div class="text-secondary small mb-3">
+          Turnstile: {% if turnstile_effective_enabled %}включён{% else %}выключен{% endif %}
+          <br>
+          Ключи: site={% if turnstile_site_configured %}да{% else %}нет{% endif %}, secret={% if turnstile_secret_configured %}да{% else %}нет{% endif %}
+          <br>
+          Повторы отправки форм: минимум {{ submit_min_interval_seconds }} сек.{% if submit_min_interval_source %} ({{ submit_min_interval_source }}){% endif %}
+        </div>
         <ul class="mb-0 text-secondary small">
           <li>Изображения слотов: hero_image, registry_image, product_image, features_image, site_logo, site_favicon.</li>
           <li>Документы категории price отображаются в блоке «Прайс».</li>
@@ -83,4 +276,5 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}

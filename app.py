@@ -4,6 +4,8 @@ import html
 import json
 import os
 import re
+import secrets
+import time
 import uuid
 import zipfile
 from datetime import datetime, timedelta
@@ -37,6 +39,7 @@ from models import (
     Asset,
     Base,
     ContentBlock,
+    DocumentCategory,
     User,
     SupportAttachment,
     SupportComplaintMedia,
@@ -433,6 +436,17 @@ DEFAULT_CONTENT: dict[str, dict[str, str]] = {
     "contacts_phone": {"title": "Контакты — телефон", "body": "+7 (495) 123-45-67"},
     "contacts_email": {"title": "Контакты — e-mail", "body": "support@strazh-avangard.ru"},
     "contacts_address": {"title": "Контакты — адрес", "body": "г. Москва, Инновационный проезд, д. 1"},
+    "requisites_company": {"title": "Реквизиты — организация", "body": ""},
+    "requisites_inn": {"title": "Реквизиты — ИНН", "body": ""},
+    "requisites_kpp": {"title": "Реквизиты — КПП", "body": ""},
+    "requisites_ogrn": {"title": "Реквизиты — ОГРН", "body": ""},
+    "requisites_address": {"title": "Реквизиты — адрес", "body": ""},
+    "requisites_bank": {"title": "Реквизиты — банк", "body": ""},
+    "requisites_bik": {"title": "Реквизиты — БИК", "body": ""},
+    "requisites_rs": {"title": "Реквизиты — расчётный счёт", "body": ""},
+    "requisites_ks": {"title": "Реквизиты — корреспондентский счёт", "body": ""},
+    "option_turnstile_enabled": {"title": "Опции — Turnstile включён (0/1)", "body": "1"},
+    "option_submit_min_interval_seconds": {"title": "Опции — антидубль форм (сек)", "body": "8"},
 }
 
 REGISTRY_EDITOR_SECTIONS: tuple[dict[str, object], ...] = (
@@ -559,6 +573,20 @@ def create_app() -> Flask:
                     "ADD COLUMN user_id INTEGER NULL"
                 )
             )
+
+        admin_cols = {r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(admin_users)"))}
+        if "first_name" not in admin_cols:
+            conn.execute(text("ALTER TABLE admin_users ADD COLUMN first_name VARCHAR(120) NOT NULL DEFAULT ''"))
+        if "last_name" not in admin_cols:
+            conn.execute(text("ALTER TABLE admin_users ADD COLUMN last_name VARCHAR(120) NOT NULL DEFAULT ''"))
+        if "phone" not in admin_cols:
+            conn.execute(text("ALTER TABLE admin_users ADD COLUMN phone TEXT NOT NULL DEFAULT ''"))
+        if "email" not in admin_cols:
+            conn.execute(text("ALTER TABLE admin_users ADD COLUMN email TEXT NOT NULL DEFAULT ''"))
+        if "telegram" not in admin_cols:
+            conn.execute(text("ALTER TABLE admin_users ADD COLUMN telegram TEXT NOT NULL DEFAULT ''"))
+        if "whatsapp" not in admin_cols:
+            conn.execute(text("ALTER TABLE admin_users ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''"))
 
         attachment_cols = {
             r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_attachments)"))
@@ -783,6 +811,23 @@ def create_app() -> Flask:
         if created:
             db().flush()
 
+        default_doc_categories = [
+            ("price", "Прайс", 10),
+            ("registry", "Реестр ПО РФ", 20),
+            ("other", "Документы", 30),
+        ]
+        existing_doc_categories = set(db().scalars(select(DocumentCategory.key)).all())
+        if not existing_doc_categories:
+            for key, title, order in default_doc_categories:
+                db().add(DocumentCategory(key=key, title=title, sort_order=order))
+            db().flush()
+        else:
+            for key, title, order in default_doc_categories:
+                if key in existing_doc_categories:
+                    continue
+                db().add(DocumentCategory(key=key, title=title, sort_order=order))
+            db().flush()
+
     def current_user() -> AdminUser | None:
         user_id = session.get("admin_user_id")
         if not user_id:
@@ -991,6 +1036,15 @@ def create_app() -> Flask:
             or (os.environ.get("TURNSTILE_SECRET_KEY") or "")
         ).strip()
 
+    def turnstile_enabled() -> bool:
+        if not _turnstile_site_key() or not _turnstile_secret_key():
+            return False
+        block = db().get(ContentBlock, "option_turnstile_enabled")
+        raw = (getattr(block, "body", "") or "").strip().lower()
+        if not raw:
+            return True
+        return raw in {"1", "true", "yes", "y", "on"}
+
     def verify_turnstile(token: str, remote_ip: str | None) -> bool:
         secret_key = _turnstile_secret_key()
         if not secret_key:
@@ -1057,6 +1111,63 @@ def create_app() -> Flask:
                 return True
 
         return False
+
+    def submit_min_interval_seconds() -> int:
+        env_raw = (
+            (os.environ.get("GUARDE_SUBMIT_MIN_INTERVAL_SECONDS") or "")
+            or (os.environ.get("SUBMIT_MIN_INTERVAL_SECONDS") or "")
+        ).strip()
+        raw = env_raw
+        if not raw:
+            block = db().get(ContentBlock, "option_submit_min_interval_seconds")
+            raw = (getattr(block, "body", "") or "").strip()
+        try:
+            value = int(raw)
+        except ValueError:
+            value = 8
+        if value < 0:
+            value = 0
+        if value > 300:
+            value = 300
+        return value
+
+    def issue_submit_token(form_key: str) -> str:
+        state = session.get("_submit_state")
+        if not isinstance(state, dict):
+            state = {}
+        form_state = state.get(form_key)
+        if not isinstance(form_state, dict):
+            form_state = {}
+        token = secrets.token_urlsafe(18)
+        form_state["token"] = token
+        form_state["issued_at"] = int(time.time())
+        state[form_key] = form_state
+        session["_submit_state"] = state
+        session.modified = True
+        return token
+
+    def consume_submit_token(form_key: str, token: str) -> tuple[bool, str]:
+        state = session.get("_submit_state")
+        if not isinstance(state, dict):
+            return (False, "missing")
+        form_state = state.get(form_key)
+        if not isinstance(form_state, dict):
+            return (False, "missing")
+        expected = (form_state.get("token") or "").strip()
+        token = (token or "").strip()
+        if not expected or not token or token != expected:
+            return (False, "invalid")
+        now = int(time.time())
+        last_submit_at = int(form_state.get("last_submit_at") or 0)
+        min_interval = submit_min_interval_seconds()
+        if min_interval and last_submit_at and now - last_submit_at < min_interval:
+            return (False, "too_fast")
+        form_state["last_submit_at"] = now
+        form_state.pop("token", None)
+        state[form_key] = form_state
+        session["_submit_state"] = state
+        session.modified = True
+        return (True, "ok")
 
     def store_upload(file_storage, kind: str) -> tuple[str, str]:
         original_name = file_storage.filename or ""
@@ -1152,6 +1263,10 @@ def create_app() -> Flask:
 
     @app.get("/uploads/<path:filename>")
     def uploads(filename: str):
+        asset = db().scalar(select(Asset).where(Asset.stored_filename == filename))
+        if asset is not None and asset.kind == "doc" and (asset.category or "") == "download":
+            if current_client() is None and current_user() is None:
+                abort(404)
         return send_from_directory(UPLOAD_DIR, filename)
 
     @app.get("/favicon.ico")
@@ -1167,13 +1282,56 @@ def create_app() -> Flask:
             if looks_like_bot_headers():
                 abort(400)
 
+    @app.before_request
+    def _login_bot_guard() -> None:
+        if request.method == "POST" and request.path == "/login":
+            if looks_like_bot_headers():
+                abort(400)
+
+    @app.before_request
+    def _forgot_password_bot_guard() -> None:
+        if request.method == "POST" and request.path == "/forgot-password":
+            if looks_like_bot_headers():
+                abort(400)
+
+    @app.before_request
+    def _register_bot_guard() -> None:
+        if request.method == "POST" and request.path == "/register":
+            if looks_like_bot_headers():
+                abort(400)
+
     @app.get("/")
     def index():
         blocks = get_blocks()
-        docs = db().scalars(select(Asset).where(Asset.kind == "doc").order_by(Asset.uploaded_at.desc())).all()
-        prices = [d for d in docs if (d.category or "") == "price"]
-        registry_docs = [d for d in docs if (d.category or "") == "registry"]
-        other_docs = [d for d in docs if (d.category or "") not in {"price", "registry"}]
+        ensure_defaults()
+        doc_categories = (
+            db()
+            .scalars(select(DocumentCategory).order_by(DocumentCategory.sort_order.asc(), DocumentCategory.title.asc()))
+            .all()
+        )
+        docs = (
+            db()
+            .scalars(
+                select(Asset)
+                .where(and_(Asset.kind == "doc", or_(Asset.category.is_(None), Asset.category != "download")))
+                .order_by(Asset.uploaded_at.desc())
+            )
+            .all()
+        )
+        category_items: dict[str, list[Asset]] = {c.key: [] for c in doc_categories}
+        for doc in docs:
+            key = (doc.category or "").strip() or "other"
+            if key == "download":
+                continue
+            if key not in category_items:
+                key = "other" if "other" in category_items else key
+            category_items.setdefault(key, []).append(doc)
+
+        document_groups = [
+            {"key": c.key, "title": c.title, "docs": category_items.get(c.key, [])}
+            for c in doc_categories
+            if category_items.get(c.key)
+        ]
 
         hero_image = get_asset_by_slot("hero_image")
         hero_image_2 = get_asset_by_slot("hero_image_2")
@@ -1193,7 +1351,8 @@ def create_app() -> Flask:
         adv_5_image = get_asset_by_slot("adv_5_image")
         adv_6_image = get_asset_by_slot("adv_6_image")
         features_image = get_asset_by_slot("features_image")
-        turnstile_site_key = _turnstile_site_key()
+        turnstile_site_key = _turnstile_site_key() if turnstile_enabled() else ""
+        support_submit_token = issue_submit_token("support")
 
         return render_template(
             "index.html",
@@ -1216,11 +1375,10 @@ def create_app() -> Flask:
             adv_5_image=adv_5_image,
             adv_6_image=adv_6_image,
             features_image=features_image,
-            prices=prices,
-            registry_docs=registry_docs,
-            other_docs=other_docs,
+            document_groups=document_groups,
             year=datetime.utcnow().year,
             turnstile_site_key=turnstile_site_key,
+            support_submit_token=support_submit_token,
         )
 
     def _feature_page(slug: str, image_slot: str):
@@ -1268,6 +1426,13 @@ def create_app() -> Flask:
         if user is None:
             flash("Отправка заявок доступна только зарегистрированным пользователям. Войдите или зарегистрируйтесь.", "warning")
             return redirect(url_for("login", next=url_for("index") + "#support"))
+        ok, reason = consume_submit_token("support", request.form.get("submit_token") or "")
+        if not ok:
+            if reason == "too_fast":
+                flash("Слишком часто. Подождите несколько секунд и попробуйте ещё раз.", "warning")
+            else:
+                flash("Форма уже была отправлена или устарела. Обновите страницу и попробуйте ещё раз.", "warning")
+            return redirect(url_for("index") + "#support")
         name = (request.form.get("name") or "").strip()
         email_honeypot = (request.form.get("email") or "").strip()
         email = ""
@@ -1290,7 +1455,7 @@ def create_app() -> Flask:
         if email_honeypot:
             return ("", 204)
 
-        if _turnstile_secret_key():
+        if turnstile_enabled():
             remote_ip = (
                 (request.headers.get("CF-Connecting-IP") or "").strip()
                 or (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
@@ -1357,6 +1522,35 @@ def create_app() -> Flask:
         asset = db().get(Asset, asset_id)
         if asset is None or asset.kind != "doc":
             abort(404)
+        if (asset.category or "") == "download" and current_client() is None:
+            return redirect(url_for("login", next=request.path))
+        return send_from_directory(
+            UPLOAD_DIR,
+            asset.stored_filename,
+            as_attachment=True,
+            download_name=asset.original_filename,
+        )
+
+    @app.get("/downloads")
+    @client_login_required
+    def downloads():
+        rows = (
+            db()
+            .scalars(
+                select(Asset)
+                .where(and_(Asset.kind == "doc", Asset.category == "download"))
+                .order_by(Asset.uploaded_at.desc())
+            )
+            .all()
+        )
+        return render_template("downloads.html", rows=rows)
+
+    @app.get("/downloads/files/<int:asset_id>")
+    @client_login_required
+    def downloads_file(asset_id: int):
+        asset = db().get(Asset, asset_id)
+        if asset is None or asset.kind != "doc" or (asset.category or "") != "download":
+            abort(404)
         return send_from_directory(
             UPLOAD_DIR,
             asset.stored_filename,
@@ -1368,12 +1562,31 @@ def create_app() -> Flask:
     def register():
         if current_client() is not None:
             return redirect(url_for("cabinet"))
-        return render_template("auth_register.html")
+        return render_template(
+            "auth_register.html",
+            turnstile_site_key=_turnstile_site_key() if turnstile_enabled() else "",
+            submit_token=issue_submit_token("register"),
+        )
 
     @app.post("/register")
     def register_post():
         if current_client() is not None:
             return redirect(url_for("cabinet"))
+        ok, reason = consume_submit_token("register", request.form.get("submit_token") or "")
+        if not ok:
+            if reason == "too_fast":
+                flash("Слишком часто. Подождите несколько секунд и попробуйте ещё раз.", "warning")
+            else:
+                flash("Форма уже была отправлена или устарела. Обновите страницу и попробуйте ещё раз.", "warning")
+            return redirect(url_for("register", next=request.args.get("next")))
+        honeypot = (request.form.get("fax") or "").strip()
+        if honeypot:
+            return ("", 204)
+        turnstile_token = (request.form.get("cf-turnstile-response") or "").strip()
+        if turnstile_enabled():
+            if not verify_turnstile(turnstile_token, remote_ip()):
+                flash("Подтвердите, что вы не робот.", "danger")
+                return redirect(url_for("register", next=request.args.get("next")))
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
         company = (request.form.get("company") or "").strip()
@@ -1382,14 +1595,14 @@ def create_app() -> Flask:
         whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
         if not username or len(password) < 8:
             flash("Укажите логин и пароль (минимум 8 символов).", "danger")
-            return redirect(url_for("register"))
+            return redirect(url_for("register", next=request.args.get("next")))
         if not telegram and not whatsapp:
             flash("Укажите Telegram или WhatsApp для обратной связи.", "danger")
-            return redirect(url_for("register"))
+            return redirect(url_for("register", next=request.args.get("next")))
         exists = db().scalar(select(User.id).where(func.lower(User.username) == username.lower()))
         if exists:
             flash("Пользователь с таким логином уже существует.", "danger")
-            return redirect(url_for("register"))
+            return redirect(url_for("register", next=request.args.get("next")))
         u = User(
             username=username,
             password_hash=generate_password_hash(password),
@@ -1411,23 +1624,125 @@ def create_app() -> Flask:
     def login():
         if current_client() is not None:
             return redirect(url_for("cabinet"))
-        return render_template("auth_login.html")
+        return render_template(
+            "auth_login.html",
+            turnstile_site_key=_turnstile_site_key() if turnstile_enabled() else "",
+            submit_token=issue_submit_token("login"),
+        )
 
     @app.post("/login")
     def login_post():
         if current_client() is not None:
             return redirect(url_for("cabinet"))
+        ok, reason = consume_submit_token("login", request.form.get("submit_token") or "")
+        if not ok:
+            if reason == "too_fast":
+                flash("Слишком часто. Подождите несколько секунд и попробуйте ещё раз.", "warning")
+            else:
+                flash("Форма уже была отправлена или устарела. Обновите страницу и попробуйте ещё раз.", "warning")
+            return redirect(url_for("login", next=request.args.get("next")))
+        honeypot = (request.form.get("fax") or "").strip()
+        if honeypot:
+            return ("", 204)
+        turnstile_token = (request.form.get("cf-turnstile-response") or "").strip()
+        if turnstile_enabled():
+            if not verify_turnstile(turnstile_token, remote_ip()):
+                flash("Подтвердите, что вы не робот.", "danger")
+                return redirect(url_for("login", next=request.args.get("next")))
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
         u = db().scalar(select(User).where(User.username == username))
         if u is None or not check_password_hash(u.password_hash, password):
             flash("Неверный логин или пароль.", "danger")
-            return redirect(url_for("login"))
+            return redirect(url_for("login", next=request.args.get("next")))
         session["user_id"] = u.id
         log_user_event("login", u.id, {"username": u.username})
         flash("Вход выполнен.", "success")
         next_url = safe_next_url(request.args.get("next"))
         return redirect(next_url or url_for("cabinet"))
+
+    @app.get("/forgot-password")
+    def forgot_password():
+        blocks = get_blocks()
+        return render_template(
+            "forgot_password.html",
+            blocks=blocks,
+            turnstile_site_key=_turnstile_site_key() if turnstile_enabled() else "",
+            submit_token=issue_submit_token("forgot_password"),
+        )
+
+    @app.post("/forgot-password")
+    def forgot_password_post():
+        if current_client() is not None:
+            return redirect(url_for("cabinet"))
+        ok, reason = consume_submit_token("forgot_password", request.form.get("submit_token") or "")
+        if not ok:
+            if reason == "too_fast":
+                flash("Слишком часто. Подождите несколько секунд и попробуйте ещё раз.", "warning")
+            else:
+                flash("Форма уже была отправлена или устарела. Обновите страницу и попробуйте ещё раз.", "warning")
+            return redirect(url_for("forgot_password"))
+
+        name = (request.form.get("name") or "").strip()
+        username = (request.form.get("username") or "").strip()
+        company = (request.form.get("company") or "").strip()
+        phone = normalize_multivalue(request.form.get("phone") or "")
+        contact_email = (request.form.get("contact_email") or "").strip()
+        telegram = normalize_multivalue(request.form.get("telegram") or "")
+        whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
+        comment = (request.form.get("comment") or "").strip()
+        honeypot = (request.form.get("fax") or "").strip()
+        turnstile_token = (request.form.get("cf-turnstile-response") or "").strip()
+
+        if honeypot:
+            return ("", 204)
+        if turnstile_enabled():
+            if not verify_turnstile(turnstile_token, remote_ip()):
+                flash("Подтвердите, что вы не робот.", "danger")
+                return redirect(url_for("forgot_password"))
+
+        if not (username or company or phone or contact_email or telegram or whatsapp or comment):
+            flash("Заполните хотя бы одно поле, чтобы мы могли восстановить доступ.", "danger")
+            return redirect(url_for("forgot_password"))
+
+        if not (phone or contact_email or telegram or whatsapp):
+            flash("Укажите контакт для связи (телефон, email, Telegram или WhatsApp).", "danger")
+            return redirect(url_for("forgot_password"))
+
+        body_lines = [
+            "Запрос на восстановление доступа.",
+            "",
+            f"Имя: {name or '—'}",
+            f"Логин: {username or '—'}",
+            f"Компания: {company or '—'}",
+            f"Телефон(ы): {phone or '—'}",
+            f"Email: {contact_email or '—'}",
+            f"Telegram: {telegram or '—'}",
+            f"WhatsApp: {whatsapp or '—'}",
+        ]
+        if comment:
+            body_lines.extend(["", "Комментарий:", comment])
+
+        db().add(
+            SupportMessage(
+                user_id=None,
+                name=name,
+                email=contact_email,
+                company=company,
+                phone=phone,
+                telegram=telegram,
+                whatsapp=whatsapp,
+                anydesk_id="",
+                subject="Восстановление доступа",
+                message="\n".join(body_lines),
+                complaints="",
+                staff_notes="",
+                status="new",
+                created_at=datetime.utcnow(),
+            )
+        )
+        flash("Запрос отправлен в техподдержку. Мы свяжемся с вами.", "success")
+        return redirect(url_for("login"))
 
     @app.post("/logout")
     def logout():
@@ -1516,7 +1831,26 @@ def create_app() -> Flask:
     @login_required
     def admin_content_list():
         ensure_defaults()
-        hidden = {"brand_primary", "brand_secondary"}
+        hidden = {
+            "brand_primary",
+            "brand_secondary",
+            "brand_full",
+            "slogan",
+            "contacts_phone",
+            "contacts_email",
+            "contacts_address",
+            "requisites_company",
+            "requisites_inn",
+            "requisites_kpp",
+            "requisites_ogrn",
+            "requisites_address",
+            "requisites_bank",
+            "requisites_bik",
+            "requisites_rs",
+            "requisites_ks",
+            "option_turnstile_enabled",
+            "option_submit_min_interval_seconds",
+        }
         blocks = (
             db()
             .scalars(select(ContentBlock).where(~ContentBlock.key.in_(hidden)).order_by(ContentBlock.key.asc()))
@@ -1565,7 +1899,6 @@ def create_app() -> Flask:
             return {"title": title, "items": items}
 
         groups = [
-            pick("Брендинг", lambda key: key in {"brand_full", "slogan"}),
             pick("Hero", lambda key: key.startswith("hero_")),
             pick(
                 "Ключевые возможности",
@@ -1576,7 +1909,6 @@ def create_app() -> Flask:
             ),
             pick("Документы", lambda key: key.startswith("documents_")),
             pick("Поддержка", lambda key: key.startswith("support_")),
-            pick("Контакты", lambda key: key.startswith("contacts_")),
         ]
         groups.append(
             {
@@ -1874,8 +2206,14 @@ def create_app() -> Flask:
     @app.get("/admin/assets")
     @login_required
     def admin_assets():
+        ensure_defaults()
         assets = db().scalars(select(Asset).order_by(Asset.uploaded_at.desc())).all()
-        return render_template("admin/assets.html", assets=assets)
+        doc_categories = (
+            db()
+            .scalars(select(DocumentCategory).order_by(DocumentCategory.sort_order.asc(), DocumentCategory.title.asc()))
+            .all()
+        )
+        return render_template("admin/assets.html", assets=assets, doc_categories=doc_categories)
 
     @app.post("/admin/assets/upload")
     @login_required
@@ -1886,6 +2224,7 @@ def create_app() -> Flask:
         category = (request.form.get("category") or "").strip() or None
         title = (request.form.get("title") or "").strip()
         description = request.form.get("description") or ""
+        ensure_defaults()
         file = request.files.get("file")
         if file is None or not file.filename:
             flash("Файл не выбран.", "danger")
@@ -1939,6 +2278,14 @@ def create_app() -> Flask:
             if not allowed_file(file.filename, ALLOWED_DOC_EXTS):
                 flash("Недопустимый формат документа.", "danger")
                 return redirect(next_url or url_for("admin_assets"))
+            doc_category_keys = set(db().scalars(select(DocumentCategory.key)).all())
+            normalized_category = (category or "").strip() or "other"
+            if normalized_category == "download":
+                flash("Категория download зарезервирована для «Дистрибутивов».", "danger")
+                return redirect(next_url or url_for("admin_assets"))
+            if normalized_category not in doc_category_keys:
+                flash("Выберите существующую категорию документов.", "danger")
+                return redirect(next_url or url_for("admin_assets"))
             try:
                 stored, original = store_upload(file, kind=kind)
             except ValueError as exc:
@@ -1948,7 +2295,7 @@ def create_app() -> Flask:
                 Asset(
                     kind="doc",
                     slot_key=None,
-                    category=category or "other",
+                    category=normalized_category,
                     stored_filename=stored,
                     original_filename=original,
                     title=title,
@@ -1976,6 +2323,218 @@ def create_app() -> Flask:
         db().delete(asset)
         flash("Файл удалён.", "info")
         return redirect(next_url or url_for("admin_assets"))
+
+    @app.get("/admin/documents")
+    @login_required
+    def admin_documents():
+        ensure_defaults()
+        doc_categories = (
+            db()
+            .scalars(select(DocumentCategory).order_by(DocumentCategory.sort_order.asc(), DocumentCategory.title.asc()))
+            .all()
+        )
+        rows = (
+            db()
+            .scalars(
+                select(Asset)
+                .where(and_(Asset.kind == "doc", or_(Asset.category.is_(None), Asset.category != "download")))
+                .order_by(Asset.uploaded_at.desc())
+            )
+            .all()
+        )
+        category_items: dict[str, list[Asset]] = {c.key: [] for c in doc_categories}
+        for doc in rows:
+            key = (doc.category or "").strip() or "other"
+            if key == "download":
+                continue
+            if key not in category_items:
+                key = "other" if "other" in category_items else key
+            category_items.setdefault(key, []).append(doc)
+        grouped_rows = [
+            {"key": c.key, "title": c.title, "items": category_items.get(c.key, [])}
+            for c in doc_categories
+            if category_items.get(c.key)
+        ]
+        return render_template(
+            "admin/downloads.html",
+            rows=rows,
+            page_title="Документы",
+            list_title="Загруженные документы",
+            page_subtitle="Документы из этого раздела видны на сайте в секции «Документы».",
+            open_href=url_for("index") + "#documents",
+            open_label="Открыть «Документы»",
+            upload_endpoint="admin_assets_upload",
+            delete_endpoint="admin_assets_delete",
+            file_endpoint="download_file",
+            upload_category_enabled=True,
+            list_category_enabled=False,
+            doc_categories=doc_categories,
+            categories_manage_enabled=True,
+            categories_create_endpoint="admin_doc_category_create",
+            categories_update_endpoint="admin_doc_category_update",
+            categories_delete_endpoint="admin_doc_category_delete",
+            grouped_enabled=True,
+            grouped_rows=grouped_rows,
+        )
+
+    def _validate_doc_category_key(key: str) -> str | None:
+        key = (key or "").strip().lower()
+        if not key or len(key) > 32:
+            return None
+        if not re.fullmatch(r"[a-z0-9_-]+", key):
+            return None
+        if key == "download":
+            return None
+        return key
+
+    @app.post("/admin/documents/categories/create")
+    @login_required
+    def admin_doc_category_create():
+        next_url = safe_next_url(request.form.get("next"))
+        ensure_defaults()
+        key = _validate_doc_category_key(request.form.get("key") or "")
+        title = (request.form.get("title") or "").strip()
+        try:
+            sort_order = int((request.form.get("sort_order") or "100").strip() or "100")
+        except ValueError:
+            sort_order = 100
+        if key is None:
+            flash("Неверный ключ категории. Разрешены латиница/цифры/\"_\"/\"-\", до 32 символов.", "danger")
+            return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+        if not title:
+            flash("Укажите название категории.", "danger")
+            return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+        existing = db().get(DocumentCategory, key)
+        if existing is not None:
+            flash("Категория с таким ключом уже существует.", "danger")
+            return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+        db().add(DocumentCategory(key=key, title=title, sort_order=sort_order))
+        flash("Категория добавлена.", "success")
+        return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+
+    @app.post("/admin/documents/categories/<string:key>/update")
+    @login_required
+    def admin_doc_category_update(key: str):
+        next_url = safe_next_url(request.form.get("next"))
+        ensure_defaults()
+        cat = db().get(DocumentCategory, key)
+        if cat is None:
+            abort(404)
+        cat.title = (request.form.get("title") or "").strip()
+        try:
+            cat.sort_order = int((request.form.get("sort_order") or str(cat.sort_order)).strip() or str(cat.sort_order))
+        except ValueError:
+            pass
+        if not cat.title:
+            flash("Название категории не может быть пустым.", "danger")
+            return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+        flash("Категория обновлена.", "success")
+        return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+
+    @app.post("/admin/documents/categories/<string:key>/delete")
+    @login_required
+    def admin_doc_category_delete(key: str):
+        next_url = safe_next_url(request.form.get("next"))
+        ensure_defaults()
+        cat = db().get(DocumentCategory, key)
+        if cat is None:
+            abort(404)
+        in_use = db().scalar(select(func.count()).select_from(Asset).where(and_(Asset.kind == "doc", Asset.category == key)))
+        if in_use:
+            flash("Нельзя удалить категорию: к ней привязаны документы.", "danger")
+            return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+        db().delete(cat)
+        flash("Категория удалена.", "info")
+        return redirect(next_url or url_for("admin_documents") + "#doc-categories")
+
+    @app.get("/admin/downloads")
+    @login_required
+    def admin_downloads():
+        rows = (
+            db()
+            .scalars(
+                select(Asset)
+                .where(and_(Asset.kind == "doc", Asset.category == "download"))
+                .order_by(Asset.uploaded_at.desc())
+            )
+            .all()
+        )
+        return render_template(
+            "admin/downloads.html",
+            rows=rows,
+            page_title="Дистрибутивы",
+            list_title="Дистрибутивы",
+            page_subtitle="Файлы из этого раздела доступны для скачивания только зарегистрированным пользователям.",
+            open_href=url_for("downloads"),
+            open_label="Открыть «Загрузки»",
+            upload_category_enabled=False,
+            fixed_category="download",
+            upload_endpoint="admin_downloads_upload",
+            delete_endpoint="admin_downloads_delete",
+            file_endpoint="admin_downloads_file",
+            list_category_enabled=False,
+        )
+
+    @app.get("/admin/downloads/files/<int:asset_id>")
+    @login_required
+    def admin_downloads_file(asset_id: int):
+        asset = db().get(Asset, asset_id)
+        if asset is None or asset.kind != "doc" or (asset.category or "") != "download":
+            abort(404)
+        return send_from_directory(
+            UPLOAD_DIR,
+            asset.stored_filename,
+            as_attachment=True,
+            download_name=asset.original_filename,
+        )
+
+    @app.post("/admin/downloads/upload")
+    @login_required
+    def admin_downloads_upload():
+        next_url = safe_next_url(request.form.get("next"))
+        title = (request.form.get("title") or "").strip()
+        description = request.form.get("description") or ""
+        file = request.files.get("file")
+        if file is None or not file.filename:
+            flash("Файл не выбран.", "danger")
+            return redirect(next_url or url_for("admin_downloads"))
+        if not allowed_file(file.filename, ALLOWED_DOC_EXTS):
+            flash("Недопустимый формат документа.", "danger")
+            return redirect(next_url or url_for("admin_downloads"))
+        try:
+            stored, original = store_upload(file, kind="doc")
+        except ValueError as exc:
+            flash(str(exc), "danger")
+            return redirect(next_url or url_for("admin_downloads"))
+        db().add(
+            Asset(
+                kind="doc",
+                slot_key=None,
+                category="download",
+                stored_filename=stored,
+                original_filename=original,
+                title=title,
+                description=description,
+                uploaded_at=datetime.utcnow(),
+            )
+        )
+        flash("Файл для скачивания добавлен.", "success")
+        return redirect(next_url or url_for("admin_downloads"))
+
+    @app.post("/admin/downloads/delete/<int:asset_id>")
+    @login_required
+    def admin_downloads_delete(asset_id: int):
+        next_url = safe_next_url(request.form.get("next"))
+        asset = db().get(Asset, asset_id)
+        if asset is None or asset.kind != "doc" or (asset.category or "") != "download":
+            abort(404)
+        try:
+            (UPLOAD_DIR / asset.stored_filename).unlink(missing_ok=True)
+        except OSError:
+            pass
+        db().delete(asset)
+        flash("Файл удалён.", "info")
+        return redirect(next_url or url_for("admin_downloads"))
 
     @app.get("/admin/messages")
     @login_required
@@ -2701,25 +3260,172 @@ def create_app() -> Flask:
     @login_required
     def admin_settings():
         blocks = get_blocks()
-        return render_template("admin/settings.html", blocks=blocks)
+        tab = (request.args.get("tab") or "branding").strip().lower()
+        if tab not in {"branding", "password", "requisites", "contact", "options"}:
+            tab = "branding"
+        submit_min_interval_source = ""
+        if (os.environ.get("GUARDE_SUBMIT_MIN_INTERVAL_SECONDS") or "").strip():
+            submit_min_interval_source = "GUARDE_SUBMIT_MIN_INTERVAL_SECONDS"
+        elif (os.environ.get("SUBMIT_MIN_INTERVAL_SECONDS") or "").strip():
+            submit_min_interval_source = "SUBMIT_MIN_INTERVAL_SECONDS"
+        elif (blocks.get("option_submit_min_interval_seconds") and (blocks["option_submit_min_interval_seconds"].body or "").strip()):
+            submit_min_interval_source = "DB"
+        turnstile_option_raw = (blocks.get("option_turnstile_enabled").body if blocks.get("option_turnstile_enabled") else "").strip().lower()
+        turnstile_option_enabled = (not turnstile_option_raw) or (turnstile_option_raw in {"1", "true", "yes", "y", "on"})
+        return render_template(
+            "admin/settings.html",
+            blocks=blocks,
+            tab=tab,
+            admin_user=current_user(),
+            turnstile_site_configured=bool(_turnstile_site_key()),
+            turnstile_secret_configured=bool(_turnstile_secret_key()),
+            turnstile_option_enabled=turnstile_option_enabled,
+            turnstile_effective_enabled=turnstile_enabled(),
+            submit_min_interval_seconds=submit_min_interval_seconds(),
+            submit_min_interval_source=submit_min_interval_source,
+        )
 
     @app.post("/admin/settings/password")
     @login_required
     def admin_settings_password():
+        next_url = safe_next_url(request.form.get("next"))
         user = current_user()
         if user is None:
             abort(401)
         current = request.form.get("current_password") or ""
-        new = request.form.get("new_password") or ""
         if not check_password_hash(user.password_hash, current):
             flash("Текущий пароль неверный.", "danger")
-            return redirect(url_for("admin_settings"))
-        if len(new) < 8:
-            flash("Новый пароль должен быть минимум 8 символов.", "danger")
-            return redirect(url_for("admin_settings"))
-        user.password_hash = generate_password_hash(new)
-        flash("Пароль обновлён.", "success")
-        return redirect(url_for("admin_settings"))
+            return redirect(next_url or url_for("admin_settings", tab="password") + "#password")
+
+        changed = False
+
+        new_username = (request.form.get("new_username") or "").strip()
+        if not new_username:
+            new_username = user.username
+        if new_username != user.username:
+            exists = db().scalar(
+                select(AdminUser.id).where(
+                    func.lower(AdminUser.username) == new_username.lower(),
+                    AdminUser.id != user.id,
+                )
+            )
+            if exists:
+                flash("Такой логин уже занят.", "danger")
+                return redirect(next_url or url_for("admin_settings", tab="password") + "#password")
+            if len(new_username) > 64:
+                flash("Логин слишком длинный.", "danger")
+                return redirect(next_url or url_for("admin_settings", tab="password") + "#password")
+            user.username = new_username
+            changed = True
+
+        new_password = request.form.get("new_password") or ""
+        if new_password:
+            if len(new_password) < 8:
+                flash("Новый пароль должен быть минимум 8 символов.", "danger")
+                return redirect(next_url or url_for("admin_settings", tab="password") + "#password")
+            user.password_hash = generate_password_hash(new_password)
+            changed = True
+
+        if changed:
+            flash("Данные аккаунта обновлены.", "success")
+        else:
+            flash("Нечего менять.", "info")
+        return redirect(next_url or url_for("admin_settings", tab="password") + "#password")
+
+    @app.post("/admin/settings/branding")
+    @login_required
+    def admin_settings_branding():
+        ensure_defaults()
+        next_url = safe_next_url(request.form.get("next"))
+        brand_full = db().get(ContentBlock, "brand_full")
+        slogan = db().get(ContentBlock, "slogan")
+        if brand_full is None or slogan is None:
+            abort(404)
+        brand_full.body = (request.form.get("brand_full") or "").strip()
+        slogan.body = (request.form.get("slogan") or "").strip()
+        flash("Брендинг обновлён.", "success")
+        return redirect(next_url or url_for("admin_settings", tab="branding") + "#branding")
+
+    @app.post("/admin/settings/requisites")
+    @login_required
+    def admin_settings_requisites():
+        ensure_defaults()
+        next_url = safe_next_url(request.form.get("next"))
+        keys = [
+            "requisites_company",
+            "requisites_inn",
+            "requisites_kpp",
+            "requisites_ogrn",
+            "requisites_address",
+            "requisites_bank",
+            "requisites_bik",
+            "requisites_rs",
+            "requisites_ks",
+        ]
+        for key in keys:
+            block = db().get(ContentBlock, key)
+            if block is None:
+                continue
+            block.body = (request.form.get(key) or "").strip()
+        flash("Реквизиты обновлены.", "success")
+        return redirect(next_url or url_for("admin_settings", tab="requisites") + "#requisites")
+
+    @app.post("/admin/settings/contact")
+    @login_required
+    def admin_settings_contact():
+        ensure_defaults()
+        next_url = safe_next_url(request.form.get("next"))
+        keys = ["contacts_phone", "contacts_email", "contacts_address"]
+        for key in keys:
+            block = db().get(ContentBlock, key)
+            if block is None:
+                continue
+            raw = request.form.get(key) or ""
+            if key in {"contacts_phone", "contacts_email"}:
+                block.body = normalize_multivalue(raw)
+            else:
+                block.body = raw.strip()
+        flash("Контакты обновлены.", "success")
+        return redirect(next_url or url_for("admin_settings", tab="contact") + "#contact")
+
+    @app.post("/admin/settings/admin-contact")
+    @login_required
+    def admin_settings_admin_contact():
+        next_url = safe_next_url(request.form.get("next"))
+        user = current_user()
+        if user is None:
+            abort(401)
+        user.first_name = (request.form.get("admin_first_name") or "").strip()
+        user.last_name = (request.form.get("admin_last_name") or "").strip()
+        user.phone = normalize_multivalue(request.form.get("admin_phone") or "")
+        user.email = normalize_multivalue(request.form.get("admin_email") or "")
+        user.telegram = normalize_multivalue(request.form.get("admin_telegram") or "")
+        user.whatsapp = normalize_multivalue(request.form.get("admin_whatsapp") or "")
+        flash("Контакты администратора обновлены.", "success")
+        return redirect(next_url or url_for("admin_settings", tab="contact") + "#contact")
+
+    @app.post("/admin/settings/options")
+    @login_required
+    def admin_settings_options():
+        ensure_defaults()
+        next_url = safe_next_url(request.form.get("next"))
+        raw_interval = (request.form.get("option_submit_min_interval_seconds") or "").strip()
+        try:
+            interval = int(raw_interval)
+        except ValueError:
+            interval = 8
+        if interval < 0:
+            interval = 0
+        if interval > 300:
+            interval = 300
+        interval_block = db().get(ContentBlock, "option_submit_min_interval_seconds")
+        if interval_block is not None:
+            interval_block.body = str(interval)
+        turnstile_block = db().get(ContentBlock, "option_turnstile_enabled")
+        if turnstile_block is not None:
+            turnstile_block.body = "1" if request.form.get("option_turnstile_enabled") else "0"
+        flash("Опции обновлены.", "success")
+        return redirect(next_url or url_for("admin_settings", tab="options") + "#options")
 
     @app.get("/admin/logs/users")
     @login_required
@@ -2784,6 +3490,63 @@ def create_app() -> Flask:
             q=q,
             event=event,
             event_counts=event_counts,
+            date_from=date_from,
+            date_to=date_to,
+            page=page,
+            pages=pages,
+            total=total,
+        )
+
+    @app.get("/admin/logs/password-resets")
+    @login_required
+    def admin_logs_password_resets():
+        q = (request.args.get("q") or "").strip()
+        date_from = (request.args.get("date_from") or "").strip()
+        date_to = (request.args.get("date_to") or "").strip()
+        try:
+            page = max(1, int(request.args.get("page") or "1"))
+        except ValueError:
+            page = 1
+        per_page = 100
+
+        criteria: list[object] = [SupportMessage.subject == "Восстановление доступа"]
+        dt_from = _parse_date(date_from)
+        if dt_from is not None:
+            criteria.append(SupportMessage.created_at >= dt_from)
+        dt_to = _parse_date(date_to)
+        if dt_to is not None:
+            dt0 = dt_to.replace(hour=0, minute=0, second=0, microsecond=0)
+            criteria.append(SupportMessage.created_at < dt0 + timedelta(days=1))
+        if q:
+            criteria.append(
+                or_(
+                    _messages_ci_like(SupportMessage.name, q),
+                    _messages_ci_like(SupportMessage.email, q),
+                    _messages_ci_like(SupportMessage.company, q),
+                    _messages_ci_like(SupportMessage.phone, q),
+                    _messages_ci_like(SupportMessage.telegram, q),
+                    _messages_ci_like(SupportMessage.whatsapp, q),
+                    _messages_ci_like(SupportMessage.message, q),
+                )
+            )
+
+        where_clause = and_(*criteria)
+        total = int(db().scalar(select(func.count()).select_from(SupportMessage).where(where_clause)) or 0)
+        pages = max(1, (total + per_page - 1) // per_page)
+        page = min(page, pages)
+
+        rows = db().scalars(
+            select(SupportMessage)
+            .where(where_clause)
+            .order_by(SupportMessage.created_at.desc())
+            .limit(per_page)
+            .offset((page - 1) * per_page)
+        ).all()
+
+        return render_template(
+            "admin/log_password_resets.html",
+            rows=rows,
+            q=q,
             date_from=date_from,
             date_to=date_to,
             page=page,

@@ -16,6 +16,12 @@ class AdminUser(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    last_name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    phone: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    email: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    telegram: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    whatsapp: Mapped[str] = mapped_column(Text, default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -61,6 +67,15 @@ class Asset(Base):
     title: Mapped[str] = mapped_column(String(200), default="", nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class DocumentCategory(Base):
+    __tablename__ = "document_categories"
+
+    key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class SupportMessage(Base):
