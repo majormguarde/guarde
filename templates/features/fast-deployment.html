@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Быстрое внедрение - {{ blocks.get("brand_full").body if blocks else "СКУД «Стражъ | Авангардъ»" }}{% endblock %}
+
+{% block nav %}
+<nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm navbar-blur">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+      <span class="brand-mark">
+        {% if logo_asset %}
+          <img class="brand-logo" src="{{ url_for('uploads', filename=logo_asset.stored_filename) }}" alt="{{ blocks['brand_full'].body }}">
+        {% else %}
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M12 2 20 6v7c0 5-3.4 9.7-8 11-4.6-1.3-8-6-8-11V6l8-4Z"/>
+          </svg>
+        {% endif %}
+      </span>
+      <span class="d-flex flex-column lh-sm">
+        <span class="fw-bold text-dark">{{ blocks["brand_full"].body }}</span>
+        <span class="text-primary small fw-semibold">{{ blocks["slogan"].body }}</span>
+      </span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Меню">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarMain">
+      <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link" href="/">Главная</a></li>
+        <li class="nav-item"><a class="nav-link" href="/features/safety-control">Безопасность и контроль</a></li>
+        <li class="nav-item"><a class="nav-link" href="/features/scalable-architecture">Масштабируемая архитектура</a></li>
+        <li class="nav-item"><a class="nav-link" href="/features/realtime-monitoring">Регулярная готовность</a></li>
+        <li class="nav-item"><a class="nav-link" href="/features/flexible-integration">Гибкая интеграция</a></li>
+        <li class="nav-item"><a class="nav-link" href="/features/reliability-247">Надёжность 24/7</a></li>
+        <li class="nav-item"><a class="nav-link active" href="/features/fast-deployment">Быстрое внедрение</a></li>
+        <li class="nav-item"><a class="nav-link" href="/#registry">Реестр ПО</a></li>
+        <li class="nav-item"><a class="nav-link" href="/#documents">Документы</a></li>
+        <li class="nav-item"><a class="nav-link" href="/#support">Поддержка</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+{% macro kf_icon(name) %}
+  {% if name == 'user' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z"/></svg>
+  {% elif name == 'clock' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 1a10 10 0 1 0 10 10A10 10 0 0 0 12 1Zm1 11h5v2h-7V6h2Z"/></svg>
+  {% elif name == 'monitor' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M4 4h16v10H4V4Zm0 12h6v2H4v-2Zm8 0h8v2h-8v-2ZM6 6v6h12V6H6Z"/></svg>
+  {% elif name == 'shield' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v6h-2V8Zm0 8h2v2h-2v-2Z"/></svg>
+  {% elif name == 'link' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M10.59 13.41a1 1 0 0 1 0-1.41l3.53-3.53a3 3 0 0 1 4.24 4.24l-2.12 2.12a3 3 0 0 1-4.24 0 1 1 0 1 1-1.41 1.41 5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07l-3.53 3.53a1 1 0 0 1-1.41 0ZM13.41 10.59a1 1 0 0 1 0 1.41l-3.53 3.53a3 3 0 0 1-4.24-4.24l2.12-2.12a3 3 0 0 1 4.24 0 1 1 0 1 1 1.41-1.41 5 5 0 0 0-7.07 0L4.22 11.88a5 5 0 0 0 7.07 7.07l3.53-3.53a1 1 0 0 1 1.41 0Z"/></svg>
+  {% elif name == 'database' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2c4.42 0 8 1.34 8 3s-3.58 3-8 3-8-1.34-8-3 3.58-3 8-3Zm8 7c0 1.66-3.58 3-8 3s-8-1.34-8-3V7c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Zm0 4c0 1.66-3.58 3-8 3s-8-1.34-8-3v-2c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Zm0 4c0 1.66-3.58 3-8 3s-8-1.34-8-3v-2c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Z"/></svg>
+  {% elif name == 'camera' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 4 7.5 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-2.5L15 4H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>
+  {% elif name == 'cloud' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 18H6a4 4 0 1 1 0-8 5 5 0 0 1 9.8-1.5A4 4 0 0 1 19 18Z"/></svg>
+  {% elif name == 'network' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm0 14a3 3 0 1 0 3 3 3 3 0 0 0-3-3ZM4 10a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm16 0a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm-8-2a1 1 0 0 1 1 1v2h2a1 1 0 0 1 0 2h-2v2a1 1 0 0 1-2 0v-2H9a1 1 0 0 1 0-2h2V9a1 1 0 0 1 1-1Z"/></svg>
+  {% elif name == 'bell' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2Zm6-6V11a6 6 0 1 0-12 0v5L4 18v1h16v-1l-2-2Z"/></svg>
+  {% elif name == 'tools' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 7a6 6 0 0 1-7.5 5.8l-7.6 7.6a2 2 0 0 1-2.8-2.8l7.6-7.6A6 6 0 0 1 17 3l-3 3 4 4 3-3Z"/></svg>
+  {% elif name == 'report' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM7 12h10v2H7v-2Zm0 4h10v2H7v-2Zm0-8h6v2H7V8Z"/></svg>
+  {% elif name == 'sla' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v5h-2V8Zm0 7h2v2h-2v-2Z"/></svg>
+  {% elif name == 'checklist' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM10 17H7v-2h3v2Zm0-4H7v-2h3v2Zm0-4H7V7h3v2Zm7 8h-5v-2h5v2Zm0-4h-5v-2h5v2Zm0-4h-5V7h5v2Z"/></svg>
+  {% elif name == 'plan' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM7 12h10v2H7v-2Zm0 4h10v2H7v-2Zm0-8h6v2H7V8Z"/></svg>
+  {% else %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z"/></svg>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="section-pad bg-white border-bottom">
+  <div class="container">
+    <nav aria-label="breadcrumb" class="mb-4">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Главная</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Быстрое внедрение</li>
+      </ol>
+    </nav>
+    {% set kf_prefix = "deployment" %}
+    {% set ns = namespace(has_kf=false) %}
+    {% for idx in [1,2,3,4] %}
+      {% set t = blocks.get(kf_prefix ~ "_kf_" ~ idx ~ "_title") %}
+      {% if t and t.body and t.body.strip() %}
+        {% set ns.has_kf = true %}
+      {% endif %}
+    {% endfor %}
+    {% if ns.has_kf %}
+      <div class="row mb-5">
+        <div class="col-lg-8 mx-auto">
+          <h2 class="h3 fw-bold mb-2">{{ blocks.get("deployment_key_features_title", {}).body or "Этапы внедрения" }}</h2>
+          {% set announce = blocks.get("deployment_key_features_body") %}
+          {% if announce and announce.body and announce.body.strip() %}
+            <p class="lead text-secondary mb-4">{{ announce.body }}</p>
+          {% endif %}
+          <div class="row g-4">
+            {% for idx in [1,2,3,4] %}
+              {% set t = blocks.get(kf_prefix ~ "_kf_" ~ idx ~ "_title") %}
+              {% set d = blocks.get(kf_prefix ~ "_kf_" ~ idx ~ "_desc") %}
+              {% set i = blocks.get(kf_prefix ~ "_kf_" ~ idx ~ "_icon") %}
+              {% if t and t.body and t.body.strip() %}
+                <div class="col-md-6">
+                  <div class="d-flex align-items-start gap-3">
+                    <div class="icon-tile icon-tile-blue flex-shrink-0">
+                      {{ kf_icon(i.body.strip() if i and i.body else "user") }}
+                    </div>
+                    <div>
+                      <h5 class="fw-semibold mb-2">{{ t.body }}</h5>
+                      {% if d and d.body and d.body.strip() %}
+                        <p class="text-secondary mb-0">{{ d.body }}</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    <div class="row g-4">
+      <div class="col-12">
+        {% if deployment_image %}
+          <img src="{{ url_for('uploads', filename=deployment_image.stored_filename) }}" alt="{{ deployment_image.title or 'Быстрое внедрение' }}" class="img-fluid rounded shadow-sm mb-4 w-100 feature-hero-img">
+        {% else %}
+          <div class="bg-light rounded d-flex align-items-center justify-content-center mb-4" style="height: 300px;">
+            <div class="text-center text-muted">
+              <svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" class="mb-3">
+                <path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v6h-2V8Zm0 8h2v2h-2v-2Z"/>
+              </svg>
+              <p>Изображение быстрого внедрения</p>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+      <div class="col-12">
+        <h1 class="display-5 fw-bold mb-4">{{ blocks.get("deployment_title", {}).body or "Быстрое внедрение" }}</h1>
+        <div class="lead text-secondary mb-5">
+          {{ (blocks.get("deployment_content", {}).body or "Минимальные сроки внедрения системы с полным сопровождением на каждом этапе.")|safe }}
+        </div>
+        <div class="d-flex gap-3">
+          <a href="/#support" class="btn btn-primary btn-lg">Запросить КП</a>
+          <a href="/" class="btn btn-outline-secondary btn-lg">На главную</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section-pad bg-white">
+  <div class="container text-center">
+    <h2 class="h3 fw-bold mb-4">Готовы начать внедрение СКУД?</h2>
+    <p class="lead text-secondary mb-4">Оставьте заявку и получите план внедрения в течение 5 дней</p>
+    <a href="/#support" class="btn btn-primary btn-lg">Запросить консультацию</a>
+  </div>
+</section>
+{% endblock %}

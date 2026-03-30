@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Админка — Возможности{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between gap-3 mb-4">
+  <div>
+    <div class="text-secondary small">Редактирование</div>
+    <h1 class="h4 mb-0">Возможности</h1>
+  </div>
+</div>
+
+<div class="row g-4">
+  {% for fp in feature_pages %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-start justify-content-between mb-2">
+            <div class="fw-semibold">{{ fp.label }}</div>
+            <span class="badge bg-{% if fp.title_block and fp.content_block %}success{% else %}warning{% endif %}">
+              {% if fp.title_block and fp.content_block %}Готово{% else %}Пусто{% endif %}
+            </span>
+          </div>
+          {% if fp.image %}
+            <div class="mb-2">
+              <img src="{{ url_for('uploads', filename=fp.image.stored_filename) }}" alt="" class="img-thumbnail" style="max-height: 80px;">
+            </div>
+          {% endif %}
+          <div class="small text-secondary mb-2">
+            <div>Заголовок: {{ fp.title_block.body[:50] if fp.title_block and fp.title_block.body else '—' }}</div>
+          </div>
+        </div>
+        <div class="card-footer bg-transparent border-0 pt-0">
+          <a class="btn btn-outline-primary btn-sm w-100" href="{{ url_for('admin_features_edit', slug=fp.slug) }}">
+            Редактировать
+          </a>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

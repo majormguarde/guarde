@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import html
+import json
 import os
+import re
 import uuid
-from datetime import datetime
+import zipfile
+from datetime import datetime, timedelta
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.error import URLError
+from urllib.parse import urlencode, urlparse
+from urllib.request import Request, urlopen
 from typing import Callable
 
 from flask import (
@@ -22,10 +28,21 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from sqlalchemy import create_engine, func, select, text
+from sqlalchemy import create_engine, delete, func, select, text, update
+from sqlalchemy.sql import and_, or_
 from sqlalchemy.orm import Session, sessionmaker
 
-from models import AdminUser, Asset, Base, ContentBlock, SupportMessage
+from models import (
+    AdminUser,
+    Asset,
+    Base,
+    ContentBlock,
+    SupportAttachment,
+    SupportComplaintMedia,
+    SupportMessage,
+    SupportWorkLog,
+    SupportWorkLogMedia,
+)
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -34,6 +51,32 @@ UPLOAD_DIR = APP_DIR / "static" / "uploads"
 
 ALLOWED_IMAGE_EXTS = {"png", "jpg", "jpeg", "webp", "svg", "ico"}
 ALLOWED_DOC_EXTS = {"pdf", "doc", "docx", "xls", "xlsx", "zip", "rar"}
+ALLOWED_SUPPORT_UPLOAD_EXTS = {
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "bmp",
+    "webp",
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "zip",
+    "rar",
+    "txt",
+    "log",
+    "csv",
+    "mp3",
+    "wav",
+    "ogg",
+    "m4a",
+    "mp4",
+    "mov",
+    "webm",
+    "avi",
+}
 
 DEFAULT_CONTENT: dict[str, dict[str, str]] = {
     "brand_full": {"title": "Бренд (полное)", "body": "СКУД «Стражъ | Авангардъ»"},
@@ -73,6 +116,33 @@ DEFAULT_CONTENT: dict[str, dict[str, str]] = {
         "title": "Реестр — описание",
         "body": "Программный комплекс «Стражъ | Авангардъ» официально зарегистрирован в реестре Минцифры РФ. Подходит для импортозамещения на объектах КИИ и в государственных структурах.",
     },
+    "registry_badge_label": {"title": "Реестр — верхняя плашка", "body": "Государственная регистрация"},
+    "registry_product_kicker": {"title": "Реестр — подпись продукта", "body": "Программный комплекс"},
+    "registry_product_name": {"title": "Реестр — название продукта", "body": "«Страж | Авангард»"},
+    "registry_chip_1": {"title": "Реестр — чип 1", "body": "Импортозамещение"},
+    "registry_chip_2": {"title": "Реестр — чип 2", "body": "Госсектор"},
+    "registry_chip_3": {"title": "Реестр — чип 3", "body": "Объекты КИИ"},
+    "registry_status_1_title": {"title": "Реестр — статус 1 заголовок", "body": "Статус"},
+    "registry_status_1_value": {"title": "Реестр — статус 1 значение", "body": "В реестре ПО РФ"},
+    "registry_status_1_desc": {"title": "Реестр — статус 1 описание", "body": "Подтверждена государственная регистрация"},
+    "registry_status_2_title": {"title": "Реестр — статус 2 заголовок", "body": "Готовность"},
+    "registry_status_2_value": {"title": "Реестр — статус 2 значение", "body": "Документы и выписки"},
+    "registry_status_2_desc": {"title": "Реестр — статус 2 описание", "body": "Справки и реестровые сведения доступны"},
+    "registry_status_3_title": {"title": "Реестр — статус 3 заголовок", "body": "Применение"},
+    "registry_status_3_value": {"title": "Реестр — статус 3 значение", "body": "Госсектор и КИИ"},
+    "registry_status_3_desc": {"title": "Реестр — статус 3 описание", "body": "Рекомендовано для критической инфраструктуры"},
+    "registry_benefits_title": {"title": "Реестр — преимущества заголовок", "body": "Что это дает заказчику"},
+    "registry_benefit_1": {"title": "Реестр — преимущество 1", "body": "Быстрое включение в конкурсную документацию"},
+    "registry_benefit_2": {"title": "Реестр — преимущество 2", "body": "Уверенное импортозамещение и закупки 44/223‑ФЗ"},
+    "registry_benefit_3": {"title": "Реестр — преимущество 3", "body": "Прозрачная подтверждаемая цепочка владения ПО"},
+    "registry_benefit_4": {"title": "Реестр — преимущество 4", "body": "Поддержка требований регуляторов и ИБ"},
+    "registry_steps_title": {"title": "Реестр — шаги заголовок", "body": "Как использовать регистрацию"},
+    "registry_step_1": {"title": "Реестр — шаг 1", "body": "Скачайте выписку и приложите к проектной документации"},
+    "registry_step_2": {"title": "Реестр — шаг 2", "body": "Укажите реестровый статус в закупочной спецификации"},
+    "registry_step_3": {"title": "Реестр — шаг 3", "body": "При аудите предоставьте комплект подтверждающих файлов"},
+    "registry_footer_brand": {"title": "Реестр — подпись внизу слева", "body": "Минцифры России"},
+    "registry_footer_note": {"title": "Реестр — подпись внизу справа", "body": "Реестр отечественного ПО"},
+    "registry_docs_title": {"title": "Реестр — заголовок документов", "body": "Документы"},
     "features_title": {"title": "Возможности — заголовок", "body": "Ключевые возможности"},
     "features_subtitle": {
         "title": "Возможности — подзаголовок",
@@ -127,6 +197,222 @@ DEFAULT_CONTENT: dict[str, dict[str, str]] = {
         "title": "Преимущество 6 — описание",
         "body": "Готовые сценарии, шаблоны и методики запуска сокращают сроки внедрения.",
     },
+    "safety_title": {"title": "Безопасность — заголовок", "body": "Безопасность и контроль доступа"},
+    "safety_content": {
+        "title": "Безопасность — текст",
+        "body": "СКУД «Стражъ | Авангардъ» обеспечивает надёжную защиту периметра и контроль доступа на объекты любой сложности.",
+    },
+    "safety_key_features_title": {"title": "Безопасность — подзаголовок", "body": "Ключевые возможности"},
+    "safety_key_features_body": {
+        "title": "Безопасность — анонс",
+        "body": "Контроль доступа, аудит событий и поддержка строгих сценариев безопасности.",
+    },
+    "safety_kf_1_icon": {"title": "Безопасность — ключевая возможность 1 (иконка)", "body": "user"},
+    "safety_kf_1_title": {"title": "Безопасность — ключевая возможность 1 (заголовок)", "body": "Многоуровневая идентификация"},
+    "safety_kf_1_desc": {
+        "title": "Безопасность — ключевая возможность 1 (текст)",
+        "body": "Поддержка карт, биометрии, PIN-кодов и мобильных приложений",
+    },
+    "safety_kf_2_icon": {"title": "Безопасность — ключевая возможность 2 (иконка)", "body": "clock"},
+    "safety_kf_2_title": {"title": "Безопасность — ключевая возможность 2 (заголовок)", "body": "Контроль времени доступа"},
+    "safety_kf_2_desc": {
+        "title": "Безопасность — ключевая возможность 2 (текст)",
+        "body": "Гибкие правила доступа по времени и дням недели",
+    },
+    "safety_kf_3_icon": {"title": "Безопасность — ключевая возможность 3 (иконка)", "body": "monitor"},
+    "safety_kf_3_title": {"title": "Безопасность — ключевая возможность 3 (заголовок)", "body": "Журнал событий"},
+    "safety_kf_3_desc": {
+        "title": "Безопасность — ключевая возможность 3 (текст)",
+        "body": "Полный аудит всех действий в системе с возможностью экспорта",
+    },
+    "safety_kf_4_icon": {"title": "Безопасность — ключевая возможность 4 (иконка)", "body": "shield"},
+    "safety_kf_4_title": {"title": "Безопасность — ключевая возможность 4 (заголовок)", "body": "Антитеррористическая защита"},
+    "safety_kf_4_desc": {
+        "title": "Безопасность — ключевая возможность 4 (текст)",
+        "body": "Соответствие требованиям безопасности для объектов КИИ",
+    },
+    "scalability_title": {"title": "Масштабируемость — заголовок", "body": "Масштабируемая архитектура"},
+    "scalability_content": {
+        "title": "Масштабируемость — текст",
+        "body": "Система легко масштабируется от небольшого офиса до крупного предприятия с тысячами точек доступа.",
+    },
+    "scalability_key_features_title": {
+        "title": "Масштабируемость — подзаголовок",
+        "body": "Возможности масштабирования",
+    },
+    "scalability_key_features_body": {
+        "title": "Масштабируемость — анонс",
+        "body": "Поддержка роста от одного офиса до распределённой сети объектов.",
+    },
+    "scalability_kf_1_icon": {"title": "Масштабируемость — ключевая возможность 1 (иконка)", "body": "monitor"},
+    "scalability_kf_1_title": {
+        "title": "Масштабируемость — ключевая возможность 1 (заголовок)",
+        "body": "Горизонтальное масштабирование",
+    },
+    "scalability_kf_1_desc": {
+        "title": "Масштабируемость — ключевая возможность 1 (текст)",
+        "body": "Добавление новых контроллеров без остановки системы",
+    },
+    "scalability_kf_2_icon": {"title": "Масштабируемость — ключевая возможность 2 (иконка)", "body": "shield"},
+    "scalability_kf_2_title": {"title": "Масштабируемость — ключевая возможность 2 (заголовок)", "body": "Модульная архитектура"},
+    "scalability_kf_2_desc": {
+        "title": "Масштабируемость — ключевая возможность 2 (текст)",
+        "body": "Возможность подключения дополнительных модулей по мере роста",
+    },
+    "scalability_kf_3_icon": {"title": "Масштабируемость — ключевая возможность 3 (иконка)", "body": "cloud"},
+    "scalability_kf_3_title": {"title": "Масштабируемость — ключевая возможность 3 (заголовок)", "body": "Облачные технологии"},
+    "scalability_kf_3_desc": {
+        "title": "Масштабируемость — ключевая возможность 3 (текст)",
+        "body": "Использование облачных сервисов для обработки больших данных",
+    },
+    "scalability_kf_4_icon": {"title": "Масштабируемость — ключевая возможность 4 (иконка)", "body": "network"},
+    "scalability_kf_4_title": {
+        "title": "Масштабируемость — ключевая возможность 4 (заголовок)",
+        "body": "Распределённая обработка",
+    },
+    "scalability_kf_4_desc": {
+        "title": "Масштабируемость — ключевая возможность 4 (текст)",
+        "body": "Балансировка нагрузки между серверами",
+    },
+    "monitoring_title": {"title": "Мониторинг — заголовок", "body": "Регулярная готовность и мониторинг"},
+    "monitoring_content": {
+        "title": "Мониторинг — текст",
+        "body": "Круглосуточный мониторинг состояния системы и своевременное реагирование на события.",
+    },
+    "monitoring_key_features_title": {"title": "Мониторинг — подзаголовок", "body": "Возможности мониторинга"},
+    "monitoring_key_features_body": {
+        "title": "Мониторинг — анонс",
+        "body": "Состояние системы, уведомления и отчёты — в одном интерфейсе.",
+    },
+    "monitoring_kf_1_icon": {"title": "Мониторинг — ключевая возможность 1 (иконка)", "body": "clock"},
+    "monitoring_kf_1_title": {"title": "Мониторинг — ключевая возможность 1 (заголовок)", "body": "Реальное время"},
+    "monitoring_kf_1_desc": {
+        "title": "Мониторинг — ключевая возможность 1 (текст)",
+        "body": "Мониторинг состояния всех компонентов системы в реальном времени",
+    },
+    "monitoring_kf_2_icon": {"title": "Мониторинг — ключевая возможность 2 (иконка)", "body": "bell"},
+    "monitoring_kf_2_title": {"title": "Мониторинг — ключевая возможность 2 (заголовок)", "body": "Уведомления"},
+    "monitoring_kf_2_desc": {
+        "title": "Мониторинг — ключевая возможность 2 (текст)",
+        "body": "Мгновенные оповещения о критических событиях по SMS и email",
+    },
+    "monitoring_kf_3_icon": {"title": "Мониторинг — ключевая возможность 3 (иконка)", "body": "tools"},
+    "monitoring_kf_3_title": {"title": "Мониторинг — ключевая возможность 3 (заголовок)", "body": "Диагностика"},
+    "monitoring_kf_3_desc": {
+        "title": "Мониторинг — ключевая возможность 3 (текст)",
+        "body": "Автоматическая диагностика неисправностей и предиктивное обслуживание",
+    },
+    "monitoring_kf_4_icon": {"title": "Мониторинг — ключевая возможность 4 (иконка)", "body": "report"},
+    "monitoring_kf_4_title": {"title": "Мониторинг — ключевая возможность 4 (заголовок)", "body": "Отчётность"},
+    "monitoring_kf_4_desc": {
+        "title": "Мониторинг — ключевая возможность 4 (текст)",
+        "body": "Подробные отчёты о работе системы с графиками и аналитикой",
+    },
+    "integration_title": {"title": "Интеграция — заголовок", "body": "Гибкая интеграция"},
+    "integration_content": {
+        "title": "Интеграция — текст",
+        "body": "Легкая интеграция с существующими системами безопасности и корпоративными приложениями.",
+    },
+    "integration_key_features_title": {"title": "Интеграция — подзаголовок", "body": "Возможности интеграции"},
+    "integration_key_features_body": {
+        "title": "Интеграция — анонс",
+        "body": "API, базы данных и связки с внешними системами безопасности.",
+    },
+    "integration_kf_1_icon": {"title": "Интеграция — ключевая возможность 1 (иконка)", "body": "link"},
+    "integration_kf_1_title": {"title": "Интеграция — ключевая возможность 1 (заголовок)", "body": "API и SDK"},
+    "integration_kf_1_desc": {
+        "title": "Интеграция — ключевая возможность 1 (текст)",
+        "body": "Полный набор API для интеграции с любыми приложениями",
+    },
+    "integration_kf_2_icon": {"title": "Интеграция — ключевая возможность 2 (иконка)", "body": "database"},
+    "integration_kf_2_title": {"title": "Интеграция — ключевая возможность 2 (заголовок)", "body": "Базы данных"},
+    "integration_kf_2_desc": {
+        "title": "Интеграция — ключевая возможность 2 (текст)",
+        "body": "Поддержка популярных СУБД: PostgreSQL, MySQL, Oracle, MS SQL",
+    },
+    "integration_kf_3_icon": {"title": "Интеграция — ключевая возможность 3 (иконка)", "body": "camera"},
+    "integration_kf_3_title": {"title": "Интеграция — ключевая возможность 3 (заголовок)", "body": "Видеонаблюдение"},
+    "integration_kf_3_desc": {
+        "title": "Интеграция — ключевая возможность 3 (текст)",
+        "body": "Интеграция с системами видеонаблюдения и распознавания лиц",
+    },
+    "integration_kf_4_icon": {"title": "Интеграция — ключевая возможность 4 (иконка)", "body": "shield"},
+    "integration_kf_4_title": {
+        "title": "Интеграция — ключевая возможность 4 (заголовок)",
+        "body": "СКУД сторонних производителей",
+    },
+    "integration_kf_4_desc": {
+        "title": "Интеграция — ключевая возможность 4 (текст)",
+        "body": "Совместимость с оборудованием различных производителей",
+    },
+    "reliability_title": {"title": "Надёжность — заголовок", "body": "Надёжность 24/7"},
+    "reliability_content": {
+        "title": "Надёжность — текст",
+        "body": "Бесперебойная работа системы круглосуточно с гарантированной доступностью.",
+    },
+    "reliability_key_features_title": {"title": "Надёжность — подзаголовок", "body": "Компоненты надёжности"},
+    "reliability_key_features_body": {
+        "title": "Надёжность — анонс",
+        "body": "Отказоустойчивость, автономная работа и самодиагностика.",
+    },
+    "reliability_kf_1_icon": {"title": "Надёжность — ключевая возможность 1 (иконка)", "body": "shield"},
+    "reliability_kf_1_title": {"title": "Надёжность — ключевая возможность 1 (заголовок)", "body": "Резервирование"},
+    "reliability_kf_1_desc": {
+        "title": "Надёжность — ключевая возможность 1 (текст)",
+        "body": "Горячее резервирование критических компонентов системы",
+    },
+    "reliability_kf_2_icon": {"title": "Надёжность — ключевая возможность 2 (иконка)", "body": "clock"},
+    "reliability_kf_2_title": {"title": "Надёжность — ключевая возможность 2 (заголовок)", "body": "Автономность"},
+    "reliability_kf_2_desc": {
+        "title": "Надёжность — ключевая возможность 2 (текст)",
+        "body": "Работа в автономном режиме при отсутствии связи с сервером",
+    },
+    "reliability_kf_3_icon": {"title": "Надёжность — ключевая возможность 3 (иконка)", "body": "tools"},
+    "reliability_kf_3_title": {"title": "Надёжность — ключевая возможность 3 (заголовок)", "body": "Самодиагностика"},
+    "reliability_kf_3_desc": {
+        "title": "Надёжность — ключевая возможность 3 (текст)",
+        "body": "Автоматическое выявление и устранение неисправностей",
+    },
+    "reliability_kf_4_icon": {"title": "Надёжность — ключевая возможность 4 (иконка)", "body": "sla"},
+    "reliability_kf_4_title": {"title": "Надёжность — ключевая возможность 4 (заголовок)", "body": "Безотказность"},
+    "reliability_kf_4_desc": {
+        "title": "Надёжность — ключевая возможность 4 (текст)",
+        "body": "Гарантированная доступность 99.9% с SLA",
+    },
+    "deployment_title": {"title": "Внедрение — заголовок", "body": "Быстрое внедрение"},
+    "deployment_content": {
+        "title": "Внедрение — текст",
+        "body": "Минимальные сроки внедрения системы с полным сопровождением на каждом этапе.",
+    },
+    "deployment_key_features_title": {"title": "Внедрение — подзаголовок", "body": "Этапы внедрения"},
+    "deployment_key_features_body": {
+        "title": "Внедрение — анонс",
+        "body": "Понятный план внедрения от обследования до обучения сотрудников.",
+    },
+    "deployment_kf_1_icon": {"title": "Внедрение — ключевая возможность 1 (иконка)", "body": "checklist"},
+    "deployment_kf_1_title": {"title": "Внедрение — ключевая возможность 1 (заголовок)", "body": "Обследование"},
+    "deployment_kf_1_desc": {
+        "title": "Внедрение — ключевая возможность 1 (текст)",
+        "body": "Аудит объекта и разработка оптимального решения за 5 дней",
+    },
+    "deployment_kf_2_icon": {"title": "Внедрение — ключевая возможность 2 (иконка)", "body": "plan"},
+    "deployment_kf_2_title": {"title": "Внедрение — ключевая возможность 2 (заголовок)", "body": "Проектирование"},
+    "deployment_kf_2_desc": {
+        "title": "Внедрение — ключевая возможность 2 (текст)",
+        "body": "Разработка проектной документации и согласование решений",
+    },
+    "deployment_kf_3_icon": {"title": "Внедрение — ключевая возможность 3 (иконка)", "body": "tools"},
+    "deployment_kf_3_title": {"title": "Внедрение — ключевая возможность 3 (заголовок)", "body": "Монтаж и пуск"},
+    "deployment_kf_3_desc": {
+        "title": "Внедрение — ключевая возможность 3 (текст)",
+        "body": "Профессиональный монтаж оборудования и запуск системы",
+    },
+    "deployment_kf_4_icon": {"title": "Внедрение — ключевая возможность 4 (иконка)", "body": "user"},
+    "deployment_kf_4_title": {"title": "Внедрение — ключевая возможность 4 (заголовок)", "body": "Обучение"},
+    "deployment_kf_4_desc": {
+        "title": "Внедрение — ключевая возможность 4 (текст)",
+        "body": "Полное обучение персонала работе с системой",
+    },
     "documents_title": {"title": "Документы — заголовок", "body": "Документация и прайс-листы"},
     "documents_subtitle": {
         "title": "Документы — подзаголовок",
@@ -137,16 +423,81 @@ DEFAULT_CONTENT: dict[str, dict[str, str]] = {
         "title": "Поддержка — подзаголовок",
         "body": "Наши специалисты отвечают по вопросам внедрения, настройки и эксплуатации системы «Стражъ | Авангардъ».",
     },
+    "consent_title": {"title": "Согласие — заголовок", "body": "Cookies и персональные данные"},
+    "consent_body": {
+        "title": "Согласие — текст",
+        "body": "Сайт использует файлы cookie, чтобы работать корректно. Нажимая кнопку «Согласен», вы подтверждаете согласие на обработку ваших персональных данных в рамках обращения в техподдержку.",
+    },
     "contacts_phone": {"title": "Контакты — телефон", "body": "+7 (495) 123-45-67"},
     "contacts_email": {"title": "Контакты — e-mail", "body": "support@strazh-avangard.ru"},
     "contacts_address": {"title": "Контакты — адрес", "body": "г. Москва, Инновационный проезд, д. 1"},
 }
 
+REGISTRY_EDITOR_SECTIONS: tuple[dict[str, object], ...] = (
+    {
+        "title": "Основное",
+        "fields": (
+            {"key": "registry_badge_label", "label": "Верхняя плашка", "type": "text"},
+            {"key": "registry_title", "label": "Главный заголовок", "type": "textarea", "rows": 2},
+            {"key": "registry_product_kicker", "label": "Подпись над названием", "type": "text"},
+            {"key": "registry_product_name", "label": "Название продукта", "type": "text"},
+            {"key": "registry_description", "label": "Основное описание", "type": "textarea", "rows": 4},
+        ),
+    },
+    {
+        "title": "Чипы",
+        "fields": (
+            {"key": "registry_chip_1", "label": "Чип 1", "type": "text"},
+            {"key": "registry_chip_2", "label": "Чип 2", "type": "text"},
+            {"key": "registry_chip_3", "label": "Чип 3", "type": "text"},
+        ),
+    },
+    {
+        "title": "Статусы",
+        "fields": (
+            {"key": "registry_status_1_title", "label": "Статус 1 — заголовок", "type": "text"},
+            {"key": "registry_status_1_value", "label": "Статус 1 — значение", "type": "text"},
+            {"key": "registry_status_1_desc", "label": "Статус 1 — описание", "type": "textarea", "rows": 2},
+            {"key": "registry_status_2_title", "label": "Статус 2 — заголовок", "type": "text"},
+            {"key": "registry_status_2_value", "label": "Статус 2 — значение", "type": "text"},
+            {"key": "registry_status_2_desc", "label": "Статус 2 — описание", "type": "textarea", "rows": 2},
+            {"key": "registry_status_3_title", "label": "Статус 3 — заголовок", "type": "text"},
+            {"key": "registry_status_3_value", "label": "Статус 3 — значение", "type": "text"},
+            {"key": "registry_status_3_desc", "label": "Статус 3 — описание", "type": "textarea", "rows": 2},
+        ),
+    },
+    {
+        "title": "Преимущества и шаги",
+        "fields": (
+            {"key": "registry_benefits_title", "label": "Заголовок преимуществ", "type": "text"},
+            {"key": "registry_benefit_1", "label": "Преимущество 1", "type": "text"},
+            {"key": "registry_benefit_2", "label": "Преимущество 2", "type": "text"},
+            {"key": "registry_benefit_3", "label": "Преимущество 3", "type": "text"},
+            {"key": "registry_benefit_4", "label": "Преимущество 4", "type": "text"},
+            {"key": "registry_steps_title", "label": "Заголовок шагов", "type": "text"},
+            {"key": "registry_step_1", "label": "Шаг 1", "type": "text"},
+            {"key": "registry_step_2", "label": "Шаг 2", "type": "text"},
+            {"key": "registry_step_3", "label": "Шаг 3", "type": "text"},
+            {"key": "registry_docs_title", "label": "Заголовок документов", "type": "text"},
+            {"key": "registry_footer_brand", "label": "Подпись внизу слева", "type": "text"},
+            {"key": "registry_footer_note", "label": "Подпись внизу справа", "type": "text"},
+        ),
+    },
+)
+
 
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=False)
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key-change-me")
-    app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+    max_upload_mb_raw = (os.environ.get("MAX_UPLOAD_MB") or "").strip()
+    if max_upload_mb_raw.isdigit():
+        max_upload_mb = int(max_upload_mb_raw)
+        if max_upload_mb == 0:
+            app.config["MAX_CONTENT_LENGTH"] = None
+        else:
+            app.config["MAX_CONTENT_LENGTH"] = max_upload_mb * 1024 * 1024
+    else:
+        app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024
 
     engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
@@ -154,6 +505,7 @@ def create_app() -> Flask:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
 
+    support_fts_available = True
     with engine.begin() as conn:
         columns = {r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_messages)"))}
         if "company" not in columns:
@@ -163,10 +515,156 @@ def create_app() -> Flask:
                     "ADD COLUMN company VARCHAR(200) NOT NULL DEFAULT ''"
                 )
             )
+        if "telegram" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE support_messages "
+                    "ADD COLUMN telegram TEXT NOT NULL DEFAULT ''"
+                )
+            )
+        if "whatsapp" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE support_messages "
+                    "ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''"
+                )
+            )
+        if "complaints" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE support_messages "
+                    "ADD COLUMN complaints TEXT NOT NULL DEFAULT ''"
+                )
+            )
+        if "anydesk_id" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE support_messages "
+                    "ADD COLUMN anydesk_id VARCHAR(64) NOT NULL DEFAULT ''"
+                )
+            )
+        if "staff_notes" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE support_messages "
+                    "ADD COLUMN staff_notes TEXT NOT NULL DEFAULT ''"
+                )
+            )
+
+        attachment_cols = {
+            r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_attachments)"))
+        }
+        if attachment_cols:
+            if "direction" not in attachment_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_attachments "
+                        "ADD COLUMN direction VARCHAR(16) NOT NULL DEFAULT 'from_client'"
+                    )
+                )
+            if "note" not in attachment_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_attachments "
+                        "ADD COLUMN note TEXT NOT NULL DEFAULT ''"
+                    )
+                )
+            if "size_bytes" not in attachment_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_attachments "
+                        "ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
+        try:
+            expected_fts_cols = {
+                "name",
+                "email",
+                "company",
+                "phone",
+                "telegram",
+                "whatsapp",
+                "anydesk_id",
+                "subject",
+                "message",
+                "complaints",
+                "staff_notes",
+            }
+            existing_fts_cols = {
+                r._mapping["name"]
+                for r in conn.execute(text("PRAGMA table_info(support_messages_fts)"))
+            }
+            if existing_fts_cols and not expected_fts_cols.issubset(existing_fts_cols):
+                conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_ai"))
+                conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_ad"))
+                conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_au"))
+                conn.execute(text("DROP TABLE IF EXISTS support_messages_fts"))
+            conn.execute(
+                text(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS support_messages_fts USING fts5("
+                    "name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes, "
+                    "tokenize='unicode61'"
+                    ")"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE TRIGGER IF NOT EXISTS support_messages_fts_ai "
+                    "AFTER INSERT ON support_messages BEGIN "
+                    "INSERT INTO support_messages_fts(rowid, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes) "
+                    "VALUES (new.id, new.name, new.email, new.company, new.phone, new.telegram, new.whatsapp, new.anydesk_id, new.subject, new.message, new.complaints, new.staff_notes); "
+                    "END;"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE TRIGGER IF NOT EXISTS support_messages_fts_ad "
+                    "AFTER DELETE ON support_messages BEGIN "
+                    "DELETE FROM support_messages_fts WHERE rowid = old.id; "
+                    "END;"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE TRIGGER IF NOT EXISTS support_messages_fts_au "
+                    "AFTER UPDATE ON support_messages BEGIN "
+                    "UPDATE support_messages_fts SET "
+                    "name = new.name, "
+                    "email = new.email, "
+                    "company = new.company, "
+                    "phone = new.phone, "
+                    "telegram = new.telegram, "
+                    "whatsapp = new.whatsapp, "
+                    "anydesk_id = new.anydesk_id, "
+                    "subject = new.subject, "
+                    "message = new.message, "
+                    "complaints = new.complaints, "
+                    "staff_notes = new.staff_notes "
+                    "WHERE rowid = new.id; "
+                    "END;"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO support_messages_fts(rowid, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes) "
+                    "SELECT id, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes "
+                    "FROM support_messages "
+                    "WHERE id NOT IN (SELECT rowid FROM support_messages_fts)"
+                )
+            )
+        except Exception:
+            support_fts_available = False
+
+    app.config["SUPPORT_FTS_AVAILABLE"] = support_fts_available
 
     @app.before_request
     def _open_db() -> None:
         g.db = SessionLocal()
+
+    @app.errorhandler(413)
+    def _file_too_large(_err):
+        flash("Слишком большой файл. Уменьшите размер или загрузите по частям.", "danger")
+        return redirect(request.referrer or url_for("admin_messages"))
 
     @app.teardown_request
     def _close_db(exc: BaseException | None) -> None:
@@ -224,6 +722,33 @@ def create_app() -> Flask:
             db().add(ContentBlock(key=key, title=payload["title"], body=body))
             created = True
 
+        def extract_text(value: str) -> str:
+            return re.sub(r"<[^>]+>", " ", (value or "")).replace("\xa0", " ").strip()
+
+        def migrate_key_features(prefix: str, title_key: str, body_key: str) -> None:
+            nonlocal created
+            body_block = db().get(ContentBlock, body_key)
+            if body_block is None:
+                return
+            body = body_block.body or ""
+            if "<div class=\"col-md-6\">" not in body and "<div class='col-md-6'>" not in body:
+                return
+            titles = [extract_text(m) for m in re.findall(r"<h5[^>]*>(.*?)</h5>", body, flags=re.IGNORECASE | re.DOTALL)]
+            descs = [extract_text(m) for m in re.findall(r"<p[^>]*>(.*?)</p>", body, flags=re.IGNORECASE | re.DOTALL)]
+            for idx in range(1, 5):
+                t = titles[idx - 1] if len(titles) >= idx else ""
+                d = descs[idx - 1] if len(descs) >= idx else ""
+                title_block = db().get(ContentBlock, f"{prefix}_kf_{idx}_title")
+                desc_block = db().get(ContentBlock, f"{prefix}_kf_{idx}_desc")
+                if title_block is not None and t:
+                    title_block.body = t
+                    created = True
+                if desc_block is not None and d:
+                    desc_block.body = d
+                    created = True
+            body_block.body = ""
+            created = True
+
         hero_label = db().get(ContentBlock, "hero_mockup_label")
         if hero_label is not None:
             placeholder_variants = [["strazh", "admin", "panel"], ["straz", "admin", "panel"]]
@@ -238,6 +763,13 @@ def create_app() -> Flask:
             hero_cta_secondary.title = DEFAULT_CONTENT["hero_cta_secondary"]["title"]
             hero_cta_secondary.body = DEFAULT_CONTENT["hero_cta_secondary"]["body"]
             created = True
+
+        migrate_key_features("safety", "safety_key_features_title", "safety_key_features_body")
+        migrate_key_features("scalability", "scalability_key_features_title", "scalability_key_features_body")
+        migrate_key_features("monitoring", "monitoring_key_features_title", "monitoring_key_features_body")
+        migrate_key_features("integration", "integration_key_features_title", "integration_key_features_body")
+        migrate_key_features("reliability", "reliability_key_features_title", "reliability_key_features_body")
+        migrate_key_features("deployment", "deployment_key_features_title", "deployment_key_features_body")
 
         if created:
             db().flush()
@@ -288,15 +820,281 @@ def create_app() -> Flask:
             return None
         return next_url
 
+    def _messages_like(value: str) -> str:
+        return f"%{(value or '').replace('%', '\\%').replace('_', '\\_')}%"
+
+    def _messages_ci_like(col, value: str):
+        return func.lower(col).like(_messages_like(value).lower(), escape="\\")
+
+    def _parse_date(value: str) -> datetime | None:
+        try:
+            return datetime.strptime((value or "").strip(), "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    def _fts_term(value: str) -> str:
+        cleaned = re.sub(r"\s+", " ", (value or "")).strip()
+        if not cleaned:
+            return ""
+        if cleaned.endswith("*"):
+            return cleaned
+        return f"{cleaned}*"
+
+    def _fts_safe_token(value: str) -> bool:
+        v = (value or "").strip()
+        if len(v) < 2:
+            return False
+        return all(ch.isalnum() for ch in v)
+
+    def build_messages_query(q: str) -> tuple[list[object], str | None]:
+        tokens = [t for t in (q or "").strip().split() if t]
+        if not tokens:
+            return ([], None)
+
+        conditions: list[object] = []
+        fts_parts: list[str] = []
+        for token in tokens:
+            field = ""
+            value = token
+            if ":" in token:
+                field, value = token.split(":", 1)
+                field = field.strip().lower()
+                value = value.strip()
+            value = value.strip()
+            if not value:
+                continue
+
+            if field in {"id", "#"}:
+                try:
+                    msg_id = int(value)
+                except ValueError:
+                    continue
+                conditions.append(SupportMessage.id == msg_id)
+                continue
+
+            if field == "status":
+                conditions.append(SupportMessage.status == value)
+                continue
+
+            if field in {"from", "date_from"}:
+                dt = _parse_date(value)
+                if dt is not None:
+                    conditions.append(SupportMessage.created_at >= dt)
+                continue
+
+            if field in {"to", "date_to"}:
+                dt = _parse_date(value)
+                if dt is not None:
+                    dt0 = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                    conditions.append(SupportMessage.created_at < dt0 + timedelta(days=1))
+                continue
+
+            if field in {"name", "email", "company", "phone", "telegram", "whatsapp", "anydesk_id"}:
+                col = getattr(SupportMessage, field)
+                conditions.append(_messages_ci_like(col, value))
+                continue
+
+            if field in {"subject", "message", "complaints", "staff_notes"}:
+                col = getattr(SupportMessage, field)
+                conditions.append(_messages_ci_like(col, value))
+                if app.config.get("SUPPORT_FTS_AVAILABLE") and _fts_safe_token(value):
+                    fts_parts.append(f"{field}:{_fts_term(value)}")
+                else:
+                    pass
+                continue
+
+            if app.config.get("SUPPORT_FTS_AVAILABLE"):
+                if _fts_safe_token(value):
+                    fts_parts.append(_fts_term(value))
+            conditions.append(
+                or_(
+                    _messages_ci_like(SupportMessage.name, value),
+                    _messages_ci_like(SupportMessage.email, value),
+                    _messages_ci_like(SupportMessage.company, value),
+                    _messages_ci_like(SupportMessage.phone, value),
+                    _messages_ci_like(SupportMessage.telegram, value),
+                    _messages_ci_like(SupportMessage.whatsapp, value),
+                    _messages_ci_like(SupportMessage.anydesk_id, value),
+                    _messages_ci_like(SupportMessage.subject, value),
+                    _messages_ci_like(SupportMessage.message, value),
+                    _messages_ci_like(SupportMessage.complaints, value),
+                    _messages_ci_like(SupportMessage.staff_notes, value),
+                )
+            )
+
+        fts_query = " AND ".join([p for p in fts_parts if p]) if fts_parts else None
+        return (conditions, fts_query)
+
+    def _turnstile_site_key() -> str:
+        return (
+            (os.environ.get("CF_TURNSTILE_SITE_KEY") or "")
+            or (os.environ.get("TURNSTILE_SITE_KEY") or "")
+        ).strip()
+
+    def _turnstile_secret_key() -> str:
+        return (
+            (os.environ.get("CF_TURNSTILE_SECRET_KEY") or "")
+            or (os.environ.get("TURNSTILE_SECRET_KEY") or "")
+        ).strip()
+
+    def verify_turnstile(token: str, remote_ip: str | None) -> bool:
+        secret_key = _turnstile_secret_key()
+        if not secret_key:
+            return True
+        token = (token or "").strip()
+        if not token:
+            return False
+        payload = {"secret": secret_key, "response": token}
+        if remote_ip:
+            payload["remoteip"] = remote_ip
+        body = urlencode(payload).encode("utf-8")
+        req = Request(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=4) as resp:
+                data = resp.read().decode("utf-8", errors="replace")
+        except URLError:
+            return False
+        try:
+            result = json.loads(data)
+        except json.JSONDecodeError:
+            return False
+        return bool(result.get("success"))
+
+    def looks_like_bot_headers() -> bool:
+        ua = (request.headers.get("User-Agent") or "").strip()
+        if not ua or len(ua) < 10:
+            return True
+        ua_l = ua.lower()
+        blocked_fragments = (
+            "python-requests",
+            "curl/",
+            "wget/",
+            "aiohttp",
+            "httpclient",
+            "libwww-perl",
+            "scrapy",
+            "go-http-client",
+        )
+        if any(f in ua_l for f in blocked_fragments):
+            return True
+        if "bot" in ua_l or "spider" in ua_l or "crawler" in ua_l:
+            return True
+
+        ct = (request.headers.get("Content-Type") or "").lower()
+        if not (ct.startswith("application/x-www-form-urlencoded") or ct.startswith("multipart/form-data")):
+            return True
+
+        origin = (request.headers.get("Origin") or "").strip()
+        referer = (request.headers.get("Referer") or "").strip()
+        host_url = request.host_url.rstrip("/")
+        if origin:
+            if not origin.startswith(host_url):
+                return True
+        elif referer:
+            if not referer.startswith(host_url):
+                return True
+        else:
+            if not (request.headers.get("Accept-Language") or "").strip():
+                return True
+
+        return False
+
     def store_upload(file_storage, kind: str) -> tuple[str, str]:
         original_name = file_storage.filename or ""
         safe = secure_filename(original_name)
-        if not safe:
-            abort(400)
+        if not safe or "." not in safe:
+            raise ValueError("Имя файла не содержит расширения.")
         ext = safe.rsplit(".", 1)[1].lower()
         stored = f"{uuid.uuid4().hex}.{ext}"
         file_storage.save(UPLOAD_DIR / stored)
         return stored, original_name
+
+    def normalize_multivalue(raw: str) -> str:
+        v = (raw or "").replace("\r", "\n")
+        v = v.replace(",", "\n").replace(";", "\n")
+        parts = [p.strip() for p in v.split("\n")]
+        parts = [p for p in parts if p]
+        return "\n".join(parts)
+
+    def store_support_upload_in_dir(file_storage, rel_dir: Path) -> tuple[str, str, int]:
+        original_name = file_storage.filename or ""
+        safe = secure_filename(original_name)
+        ext = safe.rsplit(".", 1)[1].lower() if safe and "." in safe else ""
+        store_as_zip = (not ext) or (ext not in ALLOWED_SUPPORT_UPLOAD_EXTS)
+        stored_ext = "zip" if store_as_zip else ext
+        rel = rel_dir / f"{uuid.uuid4().hex}.{stored_ext}"
+        abs_path = UPLOAD_DIR / rel
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        if store_as_zip:
+            arcname = secure_filename(original_name) or "file"
+            with zipfile.ZipFile(abs_path, mode="w", compression=zipfile.ZIP_STORED) as zf:
+                with zf.open(arcname, "w") as dst:
+                    while True:
+                        chunk = file_storage.stream.read(8 * 1024 * 1024)
+                        if not chunk:
+                            break
+                        dst.write(chunk)
+        else:
+            file_storage.save(abs_path)
+        try:
+            size_bytes = int(abs_path.stat().st_size)
+        except OSError:
+            size_bytes = 0
+        return str(rel).replace("\\", "/"), original_name, size_bytes
+
+    def store_support_upload(file_storage, msg_id: int) -> tuple[str, str, int]:
+        return store_support_upload_in_dir(file_storage, Path("support") / str(msg_id))
+
+    def delete_support_complaint_media(message_ids: list[int]) -> None:
+        if not message_ids:
+            return
+        rows = db().scalars(
+            select(SupportComplaintMedia).where(SupportComplaintMedia.message_id.in_(message_ids))
+        ).all()
+        for r in rows:
+            try:
+                (UPLOAD_DIR / r.stored_filename).unlink(missing_ok=True)
+            except OSError:
+                pass
+            db().delete(r)
+
+    def delete_support_worklog_media(log_ids: list[int]) -> None:
+        if not log_ids:
+            return
+        rows = db().scalars(
+            select(SupportWorkLogMedia).where(SupportWorkLogMedia.work_log_id.in_(log_ids))
+        ).all()
+        for r in rows:
+            try:
+                (UPLOAD_DIR / r.stored_filename).unlink(missing_ok=True)
+            except OSError:
+                pass
+            db().delete(r)
+
+    def delete_support_attachments(message_ids: list[int]) -> None:
+        if not message_ids:
+            return
+        atts = db().scalars(select(SupportAttachment).where(SupportAttachment.message_id.in_(message_ids))).all()
+        for att in atts:
+            try:
+                (UPLOAD_DIR / att.stored_filename).unlink(missing_ok=True)
+            except OSError:
+                pass
+            db().delete(att)
+
+    def delete_support_work_logs(message_ids: list[int]) -> None:
+        if not message_ids:
+            return
+        log_ids = db().scalars(
+            select(SupportWorkLog.id).where(SupportWorkLog.message_id.in_(message_ids))
+        ).all()
+        delete_support_worklog_media([int(x) for x in log_ids])
+        db().execute(delete(SupportWorkLog).where(SupportWorkLog.message_id.in_(message_ids)))
 
     @app.get("/uploads/<path:filename>")
     def uploads(filename: str):
@@ -308,6 +1106,12 @@ def create_app() -> Flask:
         if asset is None:
             abort(404)
         return send_from_directory(UPLOAD_DIR, asset.stored_filename)
+
+    @app.before_request
+    def _support_bot_guard() -> None:
+        if request.method == "POST" and request.path == "/support":
+            if looks_like_bot_headers():
+                abort(400)
 
     @app.get("/")
     def index():
@@ -328,7 +1132,14 @@ def create_app() -> Flask:
         feature_2_image = get_asset_by_slot("feature_2_image")
         feature_3_image = get_asset_by_slot("feature_3_image")
         feature_4_image = get_asset_by_slot("feature_4_image")
+        adv_1_image = get_asset_by_slot("adv_1_image")
+        adv_2_image = get_asset_by_slot("adv_2_image")
+        adv_3_image = get_asset_by_slot("adv_3_image")
+        adv_4_image = get_asset_by_slot("adv_4_image")
+        adv_5_image = get_asset_by_slot("adv_5_image")
+        adv_6_image = get_asset_by_slot("adv_6_image")
         features_image = get_asset_by_slot("features_image")
+        turnstile_site_key = _turnstile_site_key()
 
         return render_template(
             "index.html",
@@ -344,38 +1155,140 @@ def create_app() -> Flask:
             feature_2_image=feature_2_image,
             feature_3_image=feature_3_image,
             feature_4_image=feature_4_image,
+            adv_1_image=adv_1_image,
+            adv_2_image=adv_2_image,
+            adv_3_image=adv_3_image,
+            adv_4_image=adv_4_image,
+            adv_5_image=adv_5_image,
+            adv_6_image=adv_6_image,
             features_image=features_image,
             prices=prices,
             registry_docs=registry_docs,
             other_docs=other_docs,
             year=datetime.utcnow().year,
+            turnstile_site_key=turnstile_site_key,
         )
+
+    def _feature_page(slug: str, image_slot: str):
+        blocks = get_blocks()
+        return render_template(
+            f"features/{slug}.html",
+            blocks=blocks,
+            logo_asset=get_asset_by_slot("site_logo"),
+            favicon_asset=get_asset_by_slot("site_favicon"),
+            safety_image=get_asset_by_slot("safety_image"),
+            scalability_image=get_asset_by_slot("scalability_image"),
+            monitoring_image=get_asset_by_slot("monitoring_image"),
+            integration_image=get_asset_by_slot("integration_image"),
+            reliability_image=get_asset_by_slot("reliability_image"),
+            deployment_image=get_asset_by_slot("deployment_image"),
+        )
+
+    @app.get("/features/safety-control")
+    def feature_safety():
+        return _feature_page("safety-control", "safety_image")
+
+    @app.get("/features/scalable-architecture")
+    def feature_scalable():
+        return _feature_page("scalable-architecture", "scalability_image")
+
+    @app.get("/features/realtime-monitoring")
+    def feature_monitoring():
+        return _feature_page("realtime-monitoring", "monitoring_image")
+
+    @app.get("/features/flexible-integration")
+    def feature_integration():
+        return _feature_page("flexible-integration", "integration_image")
+
+    @app.get("/features/reliability-247")
+    def feature_reliability():
+        return _feature_page("reliability-247", "reliability_image")
+
+    @app.get("/features/fast-deployment")
+    def feature_deployment():
+        return _feature_page("fast-deployment", "deployment_image")
 
     @app.post("/support")
     def support_submit():
         name = (request.form.get("name") or "").strip()
-        email = (request.form.get("email") or "").strip()
+        email_honeypot = (request.form.get("email") or "").strip()
+        email = ""
         company = (request.form.get("company") or "").strip()
-        phone = (request.form.get("phone") or "").strip()
+        phone = normalize_multivalue(request.form.get("phone") or "")
+        telegram = normalize_multivalue(request.form.get("telegram") or "")
+        whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
+        anydesk_id = normalize_multivalue(request.form.get("anydesk_id") or "")
         subject = (request.form.get("subject") or "").strip()
         message = (request.form.get("message") or "").strip()
+        honeypot = (request.form.get("fax") or "").strip()
+        turnstile_token = (request.form.get("cf-turnstile-response") or "").strip()
 
         if not message:
             flash("Сообщение не может быть пустым.", "danger")
             return redirect(url_for("index") + "#support")
 
-        db().add(
-            SupportMessage(
-                name=name,
-                email=email,
-                company=company,
-                phone=phone,
-                subject=subject,
-                message=message,
-                status="new",
-                created_at=datetime.utcnow(),
+        if honeypot:
+            return ("", 204)
+        if email_honeypot:
+            return ("", 204)
+
+        if _turnstile_secret_key():
+            remote_ip = (
+                (request.headers.get("CF-Connecting-IP") or "").strip()
+                or (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+                or request.remote_addr
             )
+            if not verify_turnstile(turnstile_token, remote_ip):
+                flash("Подтвердите, что вы не робот.", "danger")
+                return redirect(url_for("index") + "#support")
+
+        if looks_like_bot_headers():
+            flash("Запрос отклонён системой защиты.", "danger")
+            return redirect(url_for("index") + "#support")
+
+        msg = SupportMessage(
+            name=name,
+            email=email,
+            company=company,
+            phone=phone,
+            telegram=telegram,
+            whatsapp=whatsapp,
+            anydesk_id=anydesk_id,
+            subject=subject,
+            message=message,
+            complaints="",
+            staff_notes="",
+            status="new",
+            created_at=datetime.utcnow(),
         )
+        db().add(msg)
+        db().flush()
+
+        files_note = (request.form.get("files_note") or "").strip()
+        files = request.files.getlist("files")
+        uploaded = 0
+        for f in files:
+            if f is None or not getattr(f, "filename", ""):
+                continue
+            try:
+                stored, original, size_bytes = store_support_upload(f, msg.id)
+            except Exception:
+                flash("Не удалось сохранить файл.", "danger")
+                return redirect(url_for("index") + "#support")
+            db().add(
+                SupportAttachment(
+                    message_id=msg.id,
+                    stored_filename=stored,
+                    original_filename=original,
+                    direction="from_client",
+                    note=files_note,
+                    size_bytes=size_bytes,
+                    uploaded_at=datetime.utcnow(),
+                )
+            )
+            uploaded += 1
+        if uploaded:
+            flash("Файлы прикреплены к заявке.", "success")
         flash("Заявка отправлена. Мы свяжемся с вами.", "success")
         return redirect(url_for("index") + "#support")
 
@@ -479,7 +1392,27 @@ def create_app() -> Flask:
                     "image": get_asset_by_slot(slot_key),
                 }
             )
+        advantages_panels = []
+        for panel_id in range(1, 7):
+            title_key = f"adv_{panel_id}_title"
+            desc_key = f"adv_{panel_id}_desc"
+            slot_key = f"adv_{panel_id}_image"
+            advantages_panels.append(
+                {
+                    "id": panel_id,
+                    "title_block": blocks_by_key.get(title_key),
+                    "desc_block": blocks_by_key.get(desc_key),
+                    "slot_key": slot_key,
+                    "image": get_asset_by_slot(slot_key),
+                }
+            )
+        registry_blocks = {
+            field["key"]: blocks_by_key.get(field["key"])
+            for section in REGISTRY_EDITOR_SECTIONS
+            for field in section["fields"]
+        }
         matched: set[str] = set()
+        matched.update(registry_blocks.keys())
 
         def pick(title: str, predicate: Callable[[str], bool]) -> dict[str, object]:
             items = [block for block in blocks if predicate(block.key)]
@@ -489,7 +1422,6 @@ def create_app() -> Flask:
         groups = [
             pick("Брендинг", lambda key: key in {"brand_full", "slogan"}),
             pick("Hero", lambda key: key.startswith("hero_")),
-            pick("Реестр ПО", lambda key: key.startswith("registry_")),
             pick(
                 "Ключевые возможности",
                 lambda key: key.startswith("features_")
@@ -507,7 +1439,15 @@ def create_app() -> Flask:
                 "items": [block for block in blocks if block.key not in matched],
             }
         )
-        return render_template("admin/content_list.html", groups=groups, feature_panels=feature_panels)
+        return render_template(
+            "admin/content_list.html",
+            groups=groups,
+            feature_panels=feature_panels,
+            advantages_panels=advantages_panels,
+            registry_sections=REGISTRY_EDITOR_SECTIONS,
+            registry_blocks=registry_blocks,
+            registry_image=get_asset_by_slot("registry_image"),
+        )
 
     @app.post("/admin/features-panels/<int:panel_id>")
     @login_required
@@ -525,6 +1465,245 @@ def create_app() -> Flask:
         desc_block.body = request.form.get("desc") or ""
         flash("Панель обновлена.", "success")
         return redirect(url_for("admin_content_list") + "#feature-panels")
+
+    @app.post("/admin/advantages-panels/<int:panel_id>")
+    @login_required
+    def admin_advantages_panel_save(panel_id: int):
+        ensure_defaults()
+        if panel_id not in {1, 2, 3, 4, 5, 6}:
+            abort(404)
+        title_key = f"adv_{panel_id}_title"
+        desc_key = f"adv_{panel_id}_desc"
+        title_block = db().get(ContentBlock, title_key)
+        desc_block = db().get(ContentBlock, desc_key)
+        if title_block is None or desc_block is None:
+            abort(404)
+        title_block.body = (request.form.get("title") or "").strip()
+        desc_block.body = request.form.get("desc") or ""
+        flash("Панель обновлена.", "success")
+        return redirect(url_for("admin_content_list") + "#advantages-panels")
+
+    @app.post("/admin/registry-content")
+    @login_required
+    def admin_registry_content_save():
+        ensure_defaults()
+        keys = [field["key"] for section in REGISTRY_EDITOR_SECTIONS for field in section["fields"]]
+        for key in keys:
+            block = db().get(ContentBlock, key)
+            if block is None:
+                continue
+            value = request.form.get(key)
+            if value is None:
+                continue
+            block.body = value.strip() if "\n" not in value else value
+        flash("Блок реестра ПО обновлён.", "success")
+        return redirect(url_for("admin_content_list") + "#registry-editor")
+
+    @app.get("/admin/features")
+    @login_required
+    def admin_features_list():
+        ensure_defaults()
+        blocks = get_blocks()
+        feature_pages = [
+            {
+                "slug": "safety-control",
+                "title_key": "safety_title",
+                "content_key": "safety_content",
+                "image_slot": "safety_image",
+                "label": "Безопасность и контроль",
+            },
+            {
+                "slug": "scalable-architecture",
+                "title_key": "scalability_title",
+                "content_key": "scalability_content",
+                "image_slot": "scalability_image",
+                "label": "Масштабируемая архитектура",
+            },
+            {
+                "slug": "realtime-monitoring",
+                "title_key": "monitoring_title",
+                "content_key": "monitoring_content",
+                "image_slot": "monitoring_image",
+                "label": "Регулярная готовность",
+            },
+            {
+                "slug": "flexible-integration",
+                "title_key": "integration_title",
+                "content_key": "integration_content",
+                "image_slot": "integration_image",
+                "label": "Гибкая интеграция",
+            },
+            {
+                "slug": "reliability-247",
+                "title_key": "reliability_title",
+                "content_key": "reliability_content",
+                "image_slot": "reliability_image",
+                "label": "Надёжность 24/7",
+            },
+            {
+                "slug": "fast-deployment",
+                "title_key": "deployment_title",
+                "content_key": "deployment_content",
+                "image_slot": "deployment_image",
+                "label": "Быстрое внедрение",
+            },
+        ]
+        for fp in feature_pages:
+            fp["title_block"] = blocks.get(fp["title_key"])
+            fp["content_block"] = blocks.get(fp["content_key"])
+            fp["image"] = get_asset_by_slot(fp["image_slot"])
+        return render_template("admin/features_list.html", feature_pages=feature_pages)
+
+    @app.get("/admin/features/<string:slug>")
+    @login_required
+    def admin_features_edit(slug: str):
+        ensure_defaults()
+        blocks = get_blocks()
+        feature_map = {
+            "safety-control": {
+                "prefix": "safety",
+                "title_key": "safety_title",
+                "content_key": "safety_content",
+                "key_features_title_key": "safety_key_features_title",
+                "key_features_body_key": "safety_key_features_body",
+                "image_slot": "safety_image",
+            },
+            "scalable-architecture": {
+                "prefix": "scalability",
+                "title_key": "scalability_title",
+                "content_key": "scalability_content",
+                "key_features_title_key": "scalability_key_features_title",
+                "key_features_body_key": "scalability_key_features_body",
+                "image_slot": "scalability_image",
+            },
+            "realtime-monitoring": {
+                "prefix": "monitoring",
+                "title_key": "monitoring_title",
+                "content_key": "monitoring_content",
+                "key_features_title_key": "monitoring_key_features_title",
+                "key_features_body_key": "monitoring_key_features_body",
+                "image_slot": "monitoring_image",
+            },
+            "flexible-integration": {
+                "prefix": "integration",
+                "title_key": "integration_title",
+                "content_key": "integration_content",
+                "key_features_title_key": "integration_key_features_title",
+                "key_features_body_key": "integration_key_features_body",
+                "image_slot": "integration_image",
+            },
+            "reliability-247": {
+                "prefix": "reliability",
+                "title_key": "reliability_title",
+                "content_key": "reliability_content",
+                "key_features_title_key": "reliability_key_features_title",
+                "key_features_body_key": "reliability_key_features_body",
+                "image_slot": "reliability_image",
+            },
+            "fast-deployment": {
+                "prefix": "deployment",
+                "title_key": "deployment_title",
+                "content_key": "deployment_content",
+                "key_features_title_key": "deployment_key_features_title",
+                "key_features_body_key": "deployment_key_features_body",
+                "image_slot": "deployment_image",
+            },
+        }
+        if slug not in feature_map:
+            abort(404)
+        info = feature_map[slug]
+        return render_template(
+            "admin/features_edit.html",
+            slug=slug,
+            blocks=blocks,
+            key_features_prefix=info["prefix"],
+            title_block=blocks.get(info["title_key"]),
+            content_block=blocks.get(info["content_key"]),
+            key_features_title_block=blocks.get(info["key_features_title_key"]),
+            key_features_body_block=blocks.get(info["key_features_body_key"]),
+            image=get_asset_by_slot(info["image_slot"]),
+            image_slot=info["image_slot"],
+        )
+
+    @app.post("/admin/features/<string:slug>")
+    @login_required
+    def admin_features_save(slug: str):
+        ensure_defaults()
+        feature_map = {
+            "safety-control": {
+                "prefix": "safety",
+                "title_key": "safety_title",
+                "content_key": "safety_content",
+                "key_features_title_key": "safety_key_features_title",
+                "key_features_body_key": "safety_key_features_body",
+            },
+            "scalable-architecture": {
+                "prefix": "scalability",
+                "title_key": "scalability_title",
+                "content_key": "scalability_content",
+                "key_features_title_key": "scalability_key_features_title",
+                "key_features_body_key": "scalability_key_features_body",
+            },
+            "realtime-monitoring": {
+                "prefix": "monitoring",
+                "title_key": "monitoring_title",
+                "content_key": "monitoring_content",
+                "key_features_title_key": "monitoring_key_features_title",
+                "key_features_body_key": "monitoring_key_features_body",
+            },
+            "flexible-integration": {
+                "prefix": "integration",
+                "title_key": "integration_title",
+                "content_key": "integration_content",
+                "key_features_title_key": "integration_key_features_title",
+                "key_features_body_key": "integration_key_features_body",
+            },
+            "reliability-247": {
+                "prefix": "reliability",
+                "title_key": "reliability_title",
+                "content_key": "reliability_content",
+                "key_features_title_key": "reliability_key_features_title",
+                "key_features_body_key": "reliability_key_features_body",
+            },
+            "fast-deployment": {
+                "prefix": "deployment",
+                "title_key": "deployment_title",
+                "content_key": "deployment_content",
+                "key_features_title_key": "deployment_key_features_title",
+                "key_features_body_key": "deployment_key_features_body",
+            },
+        }
+        if slug not in feature_map:
+            abort(404)
+        info = feature_map[slug]
+        title_block = db().get(ContentBlock, info["title_key"])
+        content_block = db().get(ContentBlock, info["content_key"])
+        key_features_title_block = db().get(ContentBlock, info["key_features_title_key"])
+        key_features_body_block = db().get(ContentBlock, info["key_features_body_key"])
+        if (
+            title_block is None
+            or content_block is None
+            or key_features_title_block is None
+            or key_features_body_block is None
+        ):
+            abort(404)
+        title_block.body = (request.form.get("title") or "").strip()
+        content_block.body = request.form.get("content") or ""
+        key_features_title_block.body = (request.form.get("key_features_title") or "").strip()
+        key_features_body_block.body = request.form.get("key_features_body") or ""
+        prefix = info["prefix"]
+        for idx in range(1, 5):
+            icon_block = db().get(ContentBlock, f"{prefix}_kf_{idx}_icon")
+            title_item_block = db().get(ContentBlock, f"{prefix}_kf_{idx}_title")
+            desc_item_block = db().get(ContentBlock, f"{prefix}_kf_{idx}_desc")
+            if icon_block is not None:
+                icon_block.body = (request.form.get(f"kf_{idx}_icon") or "").strip()
+            if title_item_block is not None:
+                title_item_block.body = (request.form.get(f"kf_{idx}_title") or "").strip()
+            if desc_item_block is not None:
+                desc_item_block.body = (request.form.get(f"kf_{idx}_desc") or "").strip()
+        flash("Страница возможностей обновлена.", "success")
+        return redirect(url_for("admin_features_edit", slug=slug))
 
     @app.get("/admin/content/<string:key>")
     @login_required
@@ -575,7 +1754,11 @@ def create_app() -> Flask:
                 flash("Для изображения укажите слот (например: hero_image).", "danger")
                 return redirect(next_url or url_for("admin_assets"))
 
-            stored, original = store_upload(file, kind=kind)
+            try:
+                stored, original = store_upload(file, kind=kind)
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return redirect(next_url or url_for("admin_assets"))
             existing = db().scalar(select(Asset).where(Asset.slot_key == slot_key))
             if existing is not None:
                 try:
@@ -611,7 +1794,11 @@ def create_app() -> Flask:
             if not allowed_file(file.filename, ALLOWED_DOC_EXTS):
                 flash("Недопустимый формат документа.", "danger")
                 return redirect(next_url or url_for("admin_assets"))
-            stored, original = store_upload(file, kind=kind)
+            try:
+                stored, original = store_upload(file, kind=kind)
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return redirect(next_url or url_for("admin_assets"))
             db().add(
                 Asset(
                     kind="doc",
@@ -648,8 +1835,178 @@ def create_app() -> Flask:
     @app.get("/admin/messages")
     @login_required
     def admin_messages():
-        msgs = db().scalars(select(SupportMessage).order_by(SupportMessage.created_at.desc())).all()
-        return render_template("admin/messages.html", messages=msgs)
+        q = (request.args.get("q") or "").strip()
+        status_filter = (request.args.get("status") or "all").strip()
+        sort = (request.args.get("sort") or "newest").strip()
+        date_from = (request.args.get("date_from") or "").strip()
+        date_to = (request.args.get("date_to") or "").strip()
+        try:
+            page = max(1, int(request.args.get("page") or "1"))
+        except ValueError:
+            page = 1
+        per_page = 50
+
+        criteria: list[object] = []
+        if status_filter and status_filter != "all":
+            criteria.append(SupportMessage.status == status_filter)
+        dt_from = _parse_date(date_from)
+        if dt_from is not None:
+            criteria.append(SupportMessage.created_at >= dt_from)
+        dt_to = _parse_date(date_to)
+        if dt_to is not None:
+            dt0 = dt_to.replace(hour=0, minute=0, second=0, microsecond=0)
+            criteria.append(SupportMessage.created_at < dt0 + timedelta(days=1))
+        search_conditions, fts_q = build_messages_query(q)
+        criteria.extend(search_conditions)
+        where_clause = and_(*criteria) if criteria else None
+
+        status_counts_rows = db().execute(
+            select(SupportMessage.status, func.count()).group_by(SupportMessage.status)
+        ).all()
+        status_counts = {row[0]: int(row[1] or 0) for row in status_counts_rows}
+
+        count_stmt = select(func.count()).select_from(SupportMessage)
+        if where_clause is not None:
+            count_stmt = count_stmt.where(where_clause)
+        total = int(db().scalar(count_stmt) or 0)
+
+        pages = max(1, (total + per_page - 1) // per_page)
+        page = min(page, pages)
+
+        stmt = select(SupportMessage)
+        if where_clause is not None:
+            stmt = stmt.where(where_clause)
+        if sort == "oldest":
+            stmt = stmt.order_by(SupportMessage.created_at.asc())
+        else:
+            stmt = stmt.order_by(SupportMessage.created_at.desc())
+        stmt = stmt.limit(per_page).offset((page - 1) * per_page)
+        msgs = db().scalars(stmt).all()
+        msg_ids = [m.id for m in msgs]
+
+        worklog_counts: dict[int, int] = {}
+        files_from_client_counts: dict[int, int] = {}
+        files_to_client_counts: dict[int, int] = {}
+        message_media_flags: dict[int, dict[str, bool]] = {}
+        if msg_ids:
+            worklog_counts = {
+                int(r[0]): int(r[1] or 0)
+                for r in db()
+                .execute(
+                    select(SupportWorkLog.message_id, func.count())
+                    .where(SupportWorkLog.message_id.in_(msg_ids))
+                    .group_by(SupportWorkLog.message_id)
+                )
+                .all()
+            }
+            att_rows = db().execute(
+                select(SupportAttachment.message_id, SupportAttachment.direction, func.count())
+                .where(SupportAttachment.message_id.in_(msg_ids))
+                .group_by(SupportAttachment.message_id, SupportAttachment.direction)
+            ).all()
+            for mid, direction, cnt in att_rows:
+                d = str(direction or "").strip() or "from_client"
+                if d == "to_client":
+                    files_to_client_counts[int(mid)] = int(cnt or 0)
+                else:
+                    files_from_client_counts[int(mid)] = int(cnt or 0)
+
+            image_exts = {"png", "jpg", "jpeg", "webp", "gif", "bmp"}
+            audio_exts = {"mp3", "wav", "ogg", "m4a"}
+            video_exts = {"mp4", "mov", "webm", "avi"}
+
+            for mid in msg_ids:
+                message_media_flags[int(mid)] = {"image": False, "audio": False, "video": False, "file": False}
+
+            def _apply_media_flags(mid: int, original_filename: str, stored_filename: str) -> None:
+                flags = message_media_flags.setdefault(mid, {"image": False, "audio": False, "video": False, "file": False})
+                original = (original_filename or "").strip().lower()
+                stored = (stored_filename or "").strip().lower()
+                ext = original.rsplit(".", 1)[1] if "." in original else ""
+                if original.startswith("audio_"):
+                    flags["audio"] = True
+                elif original.startswith("video_"):
+                    flags["video"] = True
+                elif ext in image_exts:
+                    flags["image"] = True
+                elif ext in audio_exts:
+                    flags["audio"] = True
+                elif ext in video_exts:
+                    flags["video"] = True
+                else:
+                    flags["file"] = True
+                if stored.endswith(".zip"):
+                    flags["file"] = True
+
+            att_meta = db().execute(
+                select(SupportAttachment.message_id, SupportAttachment.original_filename, SupportAttachment.stored_filename)
+                .where(SupportAttachment.message_id.in_(msg_ids))
+            ).all()
+            for mid, original, stored in att_meta:
+                _apply_media_flags(int(mid), str(original or ""), str(stored or ""))
+
+            complaint_meta = db().execute(
+                select(SupportComplaintMedia.message_id, SupportComplaintMedia.original_filename, SupportComplaintMedia.stored_filename)
+                .where(SupportComplaintMedia.message_id.in_(msg_ids))
+            ).all()
+            for mid, original, stored in complaint_meta:
+                _apply_media_flags(int(mid), str(original or ""), str(stored or ""))
+
+            worklog_meta = db().execute(
+                select(SupportWorkLog.message_id, SupportWorkLogMedia.original_filename, SupportWorkLogMedia.stored_filename)
+                .join(SupportWorkLog, SupportWorkLog.id == SupportWorkLogMedia.work_log_id)
+                .where(SupportWorkLog.message_id.in_(msg_ids))
+            ).all()
+            for mid, original, stored in worklog_meta:
+                _apply_media_flags(int(mid), str(original or ""), str(stored or ""))
+
+        highlights: dict[int, dict[str, str]] = {}
+        if fts_q and msgs and app.config.get("SUPPORT_FTS_AVAILABLE"):
+            placeholders = ", ".join([f":id{i}" for i in range(len(msg_ids))])
+            params: dict[str, object] = {"fts_q": fts_q}
+            params.update({f"id{i}": msg_ids[i] for i in range(len(msg_ids))})
+            rows = db().execute(
+                text(
+                    "SELECT rowid AS id, "
+                    "highlight(support_messages_fts, 7, '<mark>', '</mark>') AS subject_hl, "
+                    "snippet(support_messages_fts, 8, '<mark>', '</mark>', '…', 18) AS message_hl "
+                    "FROM support_messages_fts "
+                    "WHERE support_messages_fts MATCH :fts_q "
+                    f"AND rowid IN ({placeholders})"
+                ),
+                params,
+            ).mappings().all()
+            def _safe_mark_html(value: str) -> str:
+                escaped = html.escape(value or "", quote=False)
+                return escaped.replace("&lt;mark&gt;", "<mark>").replace("&lt;/mark&gt;", "</mark>")
+
+            highlights = {
+                int(r["id"]): {
+                    "subject": _safe_mark_html(str(r.get("subject_hl") or "")),
+                    "message": _safe_mark_html(str(r.get("message_hl") or "")),
+                }
+                for r in rows
+            }
+
+        return render_template(
+            "admin/messages.html",
+            messages=msgs,
+            highlights=highlights,
+            worklog_counts=worklog_counts,
+            files_from_client_counts=files_from_client_counts,
+            files_to_client_counts=files_to_client_counts,
+            message_media_flags=message_media_flags,
+            q=q,
+            status_filter=status_filter,
+            sort=sort,
+            date_from=date_from,
+            date_to=date_to,
+            page=page,
+            pages=pages,
+            per_page=per_page,
+            total=total,
+            status_counts=status_counts,
+        )
 
     @app.get("/admin/messages/<int:msg_id>")
     @login_required
@@ -657,7 +2014,68 @@ def create_app() -> Flask:
         msg = db().get(SupportMessage, msg_id)
         if msg is None:
             abort(404)
-        return render_template("admin/message_view.html", msg=msg)
+        attachments = db().scalars(
+            select(SupportAttachment)
+            .where(SupportAttachment.message_id == msg_id)
+            .order_by(SupportAttachment.uploaded_at.desc())
+        ).all()
+        work_logs = db().scalars(
+            select(SupportWorkLog)
+            .where(SupportWorkLog.message_id == msg_id)
+            .order_by(SupportWorkLog.created_at.desc())
+        ).all()
+        complaint_media = db().scalars(
+            select(SupportComplaintMedia)
+            .where(SupportComplaintMedia.message_id == msg_id)
+            .order_by(SupportComplaintMedia.uploaded_at.desc())
+        ).all()
+        worklog_media_by_log: dict[int, list[SupportWorkLogMedia]] = {}
+        worklog_media_flags: dict[int, dict[str, bool]] = {}
+        if work_logs:
+            log_ids = [w.id for w in work_logs]
+            for lid in log_ids:
+                worklog_media_by_log[int(lid)] = []
+                worklog_media_flags[int(lid)] = {"image": False, "audio": False, "video": False, "file": False}
+            rows = db().scalars(
+                select(SupportWorkLogMedia)
+                .where(SupportWorkLogMedia.work_log_id.in_(log_ids))
+                .order_by(SupportWorkLogMedia.uploaded_at.desc())
+            ).all()
+            image_exts = {"png", "jpg", "jpeg", "webp", "gif", "bmp"}
+            audio_exts = {"mp3", "wav", "ogg", "m4a"}
+            video_exts = {"mp4", "mov", "webm", "avi"}
+            for r in rows:
+                lid = int(r.work_log_id)
+                worklog_media_by_log.setdefault(lid, []).append(r)
+                flags = worklog_media_flags.setdefault(lid, {"image": False, "audio": False, "video": False, "file": False})
+                original = (r.original_filename or "").strip().lower()
+                stored = (r.stored_filename or "").strip().lower()
+                ext = original.rsplit(".", 1)[1] if "." in original else ""
+                if original.startswith("audio_"):
+                    flags["audio"] = True
+                elif original.startswith("video_"):
+                    flags["video"] = True
+                elif ext in image_exts:
+                    flags["image"] = True
+                elif ext in audio_exts:
+                    flags["audio"] = True
+                elif ext in video_exts:
+                    flags["video"] = True
+                else:
+                    flags["file"] = True
+                if stored.endswith(".zip"):
+                    flags["file"] = True
+        next_url = safe_next_url(request.args.get("next")) or url_for("admin_messages")
+        return render_template(
+            "admin/message_view.html",
+            msg=msg,
+            attachments=attachments,
+            work_logs=work_logs,
+            complaint_media=complaint_media,
+            worklog_media_by_log=worklog_media_by_log,
+            worklog_media_flags=worklog_media_flags,
+            next_url=next_url,
+        )
 
     @app.post("/admin/messages/<int:msg_id>/status")
     @login_required
@@ -666,11 +2084,473 @@ def create_app() -> Flask:
         if msg is None:
             abort(404)
         status = (request.form.get("status") or "").strip()
-        if status not in {"new", "in_progress", "done"}:
+        if status not in {"new", "in_progress", "done", "archived"}:
             abort(400)
         msg.status = status
         flash("Статус обновлён.", "success")
-        return redirect(url_for("admin_message_view", msg_id=msg_id))
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=msg_id)
+        return redirect(next_url)
+
+    @app.post("/admin/messages/<int:msg_id>/delete")
+    @login_required
+    def admin_message_delete(msg_id: int):
+        msg = db().get(SupportMessage, msg_id)
+        if msg is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+        delete_support_attachments([msg_id])
+        delete_support_complaint_media([msg_id])
+        delete_support_work_logs([msg_id])
+        db().delete(msg)
+        flash("Заявка удалена.", "info")
+        return redirect(next_url)
+
+    @app.post("/admin/messages/<int:msg_id>/update")
+    @login_required
+    def admin_message_update(msg_id: int):
+        msg = db().get(SupportMessage, msg_id)
+        if msg is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=msg_id)
+        subject = (request.form.get("subject") or "").strip()
+        message = (request.form.get("message") or "").strip()
+        complaints = request.form.get("complaints") or ""
+        status = (request.form.get("status") or msg.status).strip()
+        if status not in {"new", "in_progress", "done", "archived"}:
+            abort(400)
+        if not message:
+            flash("Сообщение не может быть пустым.", "danger")
+            return redirect(next_url)
+        msg.subject = subject
+        msg.message = message
+        msg.complaints = complaints
+        msg.status = status
+        flash("Заявка обновлена.", "success")
+        return redirect(next_url)
+
+    @app.post("/admin/messages/<int:msg_id>/worklogs")
+    @login_required
+    def admin_message_worklog_create(msg_id: int):
+        msg = db().get(SupportMessage, msg_id)
+        if msg is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=msg_id)
+        body = (request.form.get("body") or "").strip()
+        if not body:
+            flash("Заполните блок работы с заявкой.", "warning")
+            return redirect(next_url)
+        user = current_user()
+        author = user.username if user else ""
+        db().add(
+            SupportWorkLog(
+                message_id=msg_id,
+                author=author,
+                body=body,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+        )
+        flash("Блок добавлен.", "success")
+        return redirect(next_url)
+
+    @app.post("/admin/messages/worklogs/<int:log_id>/update")
+    @login_required
+    def admin_message_worklog_update(log_id: int):
+        log = db().get(SupportWorkLog, log_id)
+        if log is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=log.message_id)
+        body = (request.form.get("body") or "").strip()
+        if not body:
+            flash("Блок не может быть пустым.", "danger")
+            return redirect(next_url)
+        log.body = body
+        log.updated_at = datetime.utcnow()
+        flash("Блок обновлён.", "success")
+        return redirect(next_url)
+
+    def _download_name(original_filename: str, stored_filename: str) -> str:
+        name = (original_filename or "attachment").strip() or "attachment"
+        stored = (stored_filename or "").lower()
+        if stored.endswith(".zip") and not name.lower().endswith(".zip"):
+            return f"{name}.zip"
+        return name
+
+    @app.post("/admin/messages/worklogs/<int:log_id>/media")
+    @login_required
+    def admin_worklog_media_upload(log_id: int):
+        log = db().get(SupportWorkLog, log_id)
+        if log is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=log.message_id)
+        comment = (request.form.get("comment") or "").strip()
+        files = request.files.getlist("files")
+        uploaded = 0
+        for f in files:
+            if f is None or not getattr(f, "filename", ""):
+                continue
+            try:
+                stored, original, size_bytes = store_support_upload_in_dir(
+                    f, Path("support") / "worklogs" / str(log_id)
+                )
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return redirect(next_url)
+            db().add(
+                SupportWorkLogMedia(
+                    work_log_id=log_id,
+                    stored_filename=stored,
+                    original_filename=original,
+                    comment=comment,
+                    size_bytes=size_bytes,
+                    uploaded_at=datetime.utcnow(),
+                )
+            )
+            uploaded += 1
+        if uploaded:
+            flash("Медиа прикреплено.", "success")
+        else:
+            flash("Файлы не выбраны.", "warning")
+        return redirect(next_url)
+
+    @app.post("/admin/worklogs/media/<int:media_id>/update")
+    @login_required
+    def admin_worklog_media_update(media_id: int):
+        m = db().get(SupportWorkLogMedia, media_id)
+        if m is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+        m.comment = (request.form.get("comment") or "").strip()
+        flash("Комментарий обновлён.", "success")
+        return redirect(next_url)
+
+    @app.post("/admin/worklogs/media/<int:media_id>/delete")
+    @login_required
+    def admin_worklog_media_delete(media_id: int):
+        m = db().get(SupportWorkLogMedia, media_id)
+        if m is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+        try:
+            (UPLOAD_DIR / m.stored_filename).unlink(missing_ok=True)
+        except OSError:
+            pass
+        db().delete(m)
+        flash("Файл удалён.", "info")
+        return redirect(next_url)
+
+    @app.get("/admin/worklogs/media/<int:media_id>/download")
+    @login_required
+    def admin_worklog_media_download(media_id: int):
+        m = db().get(SupportWorkLogMedia, media_id)
+        if m is None:
+            abort(404)
+        return send_from_directory(
+            UPLOAD_DIR,
+            m.stored_filename,
+            as_attachment=True,
+            download_name=_download_name(m.original_filename, m.stored_filename),
+        )
+
+    @app.get("/admin/worklogs/media/<int:media_id>/view")
+    @login_required
+    def admin_worklog_media_view(media_id: int):
+        m = db().get(SupportWorkLogMedia, media_id)
+        if m is None:
+            abort(404)
+        return send_from_directory(
+            UPLOAD_DIR,
+            m.stored_filename,
+            as_attachment=False,
+            download_name=_download_name(m.original_filename, m.stored_filename),
+        )
+
+    @app.post("/admin/messages/worklogs/<int:log_id>/delete")
+    @login_required
+    def admin_message_worklog_delete(log_id: int):
+        log = db().get(SupportWorkLog, log_id)
+        if log is None:
+            abort(404)
+        msg_id = log.message_id
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=msg_id)
+        delete_support_worklog_media([log_id])
+        db().delete(log)
+        flash("Блок удалён.", "info")
+        return redirect(next_url)
+
+    @app.post("/admin/messages/<int:msg_id>/client")
+    @login_required
+    def admin_message_client_update(msg_id: int):
+        msg = db().get(SupportMessage, msg_id)
+        if msg is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=msg_id)
+        if request.form.get("name") is not None:
+            msg.name = (request.form.get("name") or "").strip()
+        if request.form.get("email") is not None:
+            msg.email = (request.form.get("email") or "").strip()
+        if request.form.get("company") is not None:
+            msg.company = (request.form.get("company") or "").strip()
+        if request.form.get("phone") is not None:
+            msg.phone = normalize_multivalue(request.form.get("phone") or "")
+        if request.form.get("telegram") is not None:
+            msg.telegram = normalize_multivalue(request.form.get("telegram") or "")
+        if request.form.get("whatsapp") is not None:
+            msg.whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
+        if request.form.get("anydesk_id") is not None:
+            msg.anydesk_id = normalize_multivalue(request.form.get("anydesk_id") or "")
+        if request.form.get("complaints") is not None:
+            msg.complaints = request.form.get("complaints") or ""
+        flash("Данные клиента сохранены.", "success")
+        return redirect(next_url)
+
+    @app.post("/admin/messages/<int:msg_id>/complaints/media")
+    @login_required
+    def admin_complaint_media_upload(msg_id: int):
+        msg = db().get(SupportMessage, msg_id)
+        if msg is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=msg_id)
+        comment = (request.form.get("comment") or "").strip()
+        files = request.files.getlist("files")
+        uploaded = 0
+        for f in files:
+            if f is None or not getattr(f, "filename", ""):
+                continue
+            try:
+                stored, original, size_bytes = store_support_upload_in_dir(
+                    f, Path("support") / "complaints" / str(msg_id)
+                )
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return redirect(next_url)
+            db().add(
+                SupportComplaintMedia(
+                    message_id=msg_id,
+                    stored_filename=stored,
+                    original_filename=original,
+                    comment=comment,
+                    size_bytes=size_bytes,
+                    uploaded_at=datetime.utcnow(),
+                )
+            )
+            uploaded += 1
+        if uploaded:
+            flash("Медиа прикреплено.", "success")
+        else:
+            flash("Файлы не выбраны.", "warning")
+        return redirect(next_url)
+
+    @app.post("/admin/complaints/media/<int:media_id>/update")
+    @login_required
+    def admin_complaint_media_update(media_id: int):
+        m = db().get(SupportComplaintMedia, media_id)
+        if m is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+        m.comment = (request.form.get("comment") or "").strip()
+        flash("Комментарий обновлён.", "success")
+        return redirect(next_url)
+
+    @app.post("/admin/complaints/media/<int:media_id>/delete")
+    @login_required
+    def admin_complaint_media_delete(media_id: int):
+        m = db().get(SupportComplaintMedia, media_id)
+        if m is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+        try:
+            (UPLOAD_DIR / m.stored_filename).unlink(missing_ok=True)
+        except OSError:
+            pass
+        db().delete(m)
+        flash("Файл удалён.", "info")
+        return redirect(next_url)
+
+    @app.get("/admin/complaints/media/<int:media_id>/download")
+    @login_required
+    def admin_complaint_media_download(media_id: int):
+        m = db().get(SupportComplaintMedia, media_id)
+        if m is None:
+            abort(404)
+        return send_from_directory(
+            UPLOAD_DIR,
+            m.stored_filename,
+            as_attachment=True,
+            download_name=_download_name(m.original_filename, m.stored_filename),
+        )
+
+    @app.get("/admin/complaints/media/<int:media_id>/view")
+    @login_required
+    def admin_complaint_media_view(media_id: int):
+        m = db().get(SupportComplaintMedia, media_id)
+        if m is None:
+            abort(404)
+        return send_from_directory(
+            UPLOAD_DIR,
+            m.stored_filename,
+            as_attachment=False,
+            download_name=_download_name(m.original_filename, m.stored_filename),
+        )
+
+    @app.post("/admin/messages/<int:msg_id>/upload")
+    @login_required
+    def admin_message_upload(msg_id: int):
+        msg = db().get(SupportMessage, msg_id)
+        if msg is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_message_view", msg_id=msg_id)
+        files = request.files.getlist("files")
+        note = (request.form.get("note") or "").strip()
+        direction = (request.form.get("direction") or "from_client").strip()
+        if direction not in {"from_client", "to_client"}:
+            abort(400)
+        uploaded = 0
+        for f in files:
+            if f is None or not getattr(f, "filename", ""):
+                continue
+            try:
+                stored, original, size_bytes = store_support_upload(f, msg_id=msg_id)
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return redirect(next_url)
+            db().add(
+                SupportAttachment(
+                    message_id=msg_id,
+                    stored_filename=stored,
+                    original_filename=original,
+                    direction=direction,
+                    note=note,
+                    size_bytes=size_bytes,
+                    uploaded_at=datetime.utcnow(),
+                )
+            )
+            uploaded += 1
+        if uploaded:
+            flash("Файлы загружены.", "success")
+        else:
+            flash("Файлы не выбраны.", "warning")
+        return redirect(next_url)
+
+    @app.get("/admin/messages/attachments/<int:att_id>")
+    @login_required
+    def admin_message_attachment_download(att_id: int):
+        att = db().get(SupportAttachment, att_id)
+        if att is None:
+            abort(404)
+        download_name = att.original_filename or "attachment"
+        if (att.stored_filename or "").lower().endswith(".zip") and not download_name.lower().endswith(".zip"):
+            download_name = f"{download_name}.zip"
+        return send_from_directory(
+            UPLOAD_DIR,
+            att.stored_filename,
+            as_attachment=True,
+            download_name=download_name,
+        )
+
+    @app.post("/admin/messages/attachments/<int:att_id>/delete")
+    @login_required
+    def admin_message_attachment_delete(att_id: int):
+        att = db().get(SupportAttachment, att_id)
+        if att is None:
+            abort(404)
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+        try:
+            (UPLOAD_DIR / att.stored_filename).unlink(missing_ok=True)
+        except OSError:
+            pass
+        db().delete(att)
+        flash("Файл удалён.", "info")
+        return redirect(next_url)
+
+    @app.post("/admin/messages/bulk")
+    @login_required
+    def admin_messages_bulk():
+        ids_raw = request.form.getlist("ids")
+        try:
+            ids = [int(x) for x in ids_raw if str(x).strip()]
+        except ValueError:
+            abort(400)
+        action = (request.form.get("action") or "").strip()
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+
+        if not ids:
+            flash("Выберите заявки.", "warning")
+            return redirect(next_url)
+
+        if action in {"new", "in_progress", "done", "archived"}:
+            db().execute(
+                update(SupportMessage)
+                .where(SupportMessage.id.in_(ids))
+                .values(status=action)
+            )
+            flash("Статусы обновлены.", "success")
+            return redirect(next_url)
+
+        if action == "delete":
+            delete_support_attachments(ids)
+            delete_support_complaint_media(ids)
+            delete_support_work_logs(ids)
+            db().execute(delete(SupportMessage).where(SupportMessage.id.in_(ids)))
+            flash("Заявки удалены.", "info")
+            return redirect(next_url)
+
+        abort(400)
+
+    @app.post("/admin/messages/create")
+    @login_required
+    def admin_message_create():
+        next_url = safe_next_url(request.form.get("next")) or url_for("admin_messages")
+        name = (request.form.get("name") or "").strip()
+        email = (request.form.get("email") or "").strip()
+        company = (request.form.get("company") or "").strip()
+        phone = normalize_multivalue(request.form.get("phone") or "")
+        telegram = normalize_multivalue(request.form.get("telegram") or "")
+        whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
+        anydesk_id = normalize_multivalue(request.form.get("anydesk_id") or "")
+        subject = (request.form.get("subject") or "").strip()
+        message = (request.form.get("message") or "").strip()
+        complaints = request.form.get("complaints") or ""
+        worklog_body = (request.form.get("worklog_body") or "").strip()
+        status = (request.form.get("status") or "new").strip()
+        if status not in {"new", "in_progress", "done", "archived"}:
+            abort(400)
+
+        if not message:
+            flash("Сообщение не может быть пустым.", "danger")
+            return redirect(next_url)
+
+        msg = SupportMessage(
+            name=name,
+            email=email,
+            company=company,
+            phone=phone,
+            telegram=telegram,
+            whatsapp=whatsapp,
+            anydesk_id=anydesk_id,
+            subject=subject,
+            message=message,
+            complaints=complaints,
+            staff_notes="",
+            status=status,
+            created_at=datetime.utcnow(),
+        )
+        db().add(msg)
+        db().flush()
+        if worklog_body:
+            user = current_user()
+            author = user.username if user else ""
+            db().add(
+                SupportWorkLog(
+                    message_id=msg.id,
+                    author=author,
+                    body=worklog_body,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+            )
+        flash("Заявка создана.", "success")
+        return redirect(url_for("admin_message_view", msg_id=msg.id, next=next_url))
 
     @app.get("/admin/settings")
     @login_required

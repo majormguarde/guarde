@@ -10,7 +10,14 @@
     <div class="text-secondary small">{{ msg.created_at.strftime("%d.%m.%Y %H:%M") }}</div>
   </div>
   <div class="d-flex gap-2">
-    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_messages') }}">Назад</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ next_url }}">Назад</a>
+    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#editMsg{{ msg.id }}" aria-expanded="false">
+      ✎
+    </button>
+    <form method="post" action="{{ url_for('admin_message_delete', msg_id=msg.id) }}" onsubmit="return confirm('Удалить заявку без возможности восстановления?');">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <button class="btn btn-outline-danger btn-sm" type="submit">Удалить</button>
+    </form>
   </div>
 </div>
 
@@ -18,36 +25,646 @@
   <div class="col-12 col-lg-8">
     <div class="card border-0 shadow-sm">
       <div class="card-body">
-        <div class="fw-semibold mb-2">Сообщение</div>
+        <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
+          <div class="fw-semibold">Заявка</div>
+          <div>
+            {% if msg.status == "new" %}
+              <span class="badge text-bg-danger">new</span>
+            {% elif msg.status == "in_progress" %}
+              <span class="badge text-bg-warning">in_progress</span>
+            {% elif msg.status == "archived" %}
+              <span class="badge text-bg-secondary">archived</span>
+            {% else %}
+              <span class="badge text-bg-success">done</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="small text-secondary mb-1">Тема</div>
+        <div class="mb-3">{{ msg.subject or "Без темы" }}</div>
+        {% if msg.complaints %}
+          <div class="small text-secondary mb-1">Жалобы клиента</div>
+          <div class="mb-3">{{ msg.complaints|e|replace("\n", "<br>")|safe }}</div>
+        {% endif %}
+        <div class="small text-secondary mb-1">Сообщение</div>
         <div class="content-body">{{ msg.message|e|replace("\n", "<br>")|safe }}</div>
+      </div>
+    </div>
+    <div class="collapse mt-3" id="editMsg{{ msg.id }}">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="fw-semibold mb-2">Редактирование заявки</div>
+          <form method="post" action="{{ url_for('admin_message_update', msg_id=msg.id) }}">
+            <div class="mb-3">
+              <label class="form-label">Тема</label>
+              <input class="form-control" name="subject" value="{{ msg.subject }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Сообщение</label>
+              <textarea class="form-control" name="message" rows="8" required>{{ msg.message }}</textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Жалобы клиента</label>
+              <textarea class="form-control" name="complaints" rows="5">{{ msg.complaints }}</textarea>
+            </div>
+            <div class="mb-3">
+              <div class="fw-semibold mb-2">Медиа к жалобам</div>
+              {% if complaint_media %}
+                <div class="table-responsive mb-2">
+                  <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Файл</th>
+                        <th style="width: 90px;">МБ</th>
+                        <th style="width: 150px;">Дата</th>
+                        <th style="width: 120px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for a in complaint_media %}
+                        <tr>
+                          <td class="small">
+                            <div class="fw-semibold">{{ a.original_filename }}</div>
+                            <form method="post" action="{{ url_for('admin_complaint_media_update', media_id=a.id) }}" class="d-flex gap-2 mt-1">
+                              <input type="hidden" name="next" value="{{ next_url }}">
+                              <input class="form-control form-control-sm" name="comment" value="{{ a.comment }}" placeholder="Комментарий">
+                              <button class="btn btn-outline-secondary btn-sm" type="submit" title="Сохранить комментарий" aria-label="Сохранить комментарий">✓</button>
+                            </form>
+                          </td>
+                          <td class="text-secondary small">
+                            {% if a.size_bytes %}{{ (a.size_bytes / (1024 * 1024))|round(1) }}{% else %}—{% endif %}
+                          </td>
+                          <td class="text-secondary small">{{ a.uploaded_at.strftime("%d.%m.%Y %H:%M") }}</td>
+                          <td class="text-end">
+                            <div class="d-inline-flex gap-2">
+                              <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_complaint_media_view', media_id=a.id) }}" target="_blank" title="Открыть" aria-label="Открыть">↗</a>
+                              <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_complaint_media_download', media_id=a.id) }}" title="Скачать" aria-label="Скачать">↓</a>
+                              <form method="post" action="{{ url_for('admin_complaint_media_delete', media_id=a.id) }}" onsubmit="return confirm('Удалить файл?');" class="m-0">
+                                <input type="hidden" name="next" value="{{ next_url }}">
+                                <button class="btn btn-outline-danger btn-sm" type="submit" title="Удалить" aria-label="Удалить">✕</button>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <div class="text-secondary small mb-2">Файлов нет.</div>
+              {% endif %}
+              <form method="post" action="{{ url_for('admin_complaint_media_upload', msg_id=msg.id) }}" enctype="multipart/form-data">
+                <div class="d-flex align-items-center gap-2">
+                  <input class="form-control form-control-sm" name="comment" placeholder="Комментарий к загрузке">
+                  <input class="form-control form-control-sm" type="file" name="files" multiple>
+                  <input type="hidden" name="next" value="{{ next_url }}">
+                  <button class="btn btn-outline-primary btn-sm" type="submit" title="Загрузить" aria-label="Загрузить">⇪</button>
+                  <button class="btn btn-outline-secondary btn-sm" type="button" data-media-paste title="Вставить изображение из буфера" aria-label="Вставить изображение из буфера">📋</button>
+                  <button class="btn btn-outline-secondary btn-sm" type="button" data-media-audio title="Записать аудио с микрофона" aria-label="Записать аудио с микрофона">🎤</button>
+                  <button class="btn btn-outline-secondary btn-sm" type="button" data-media-video title="Записать видео с веб-камеры" aria-label="Записать видео с веб-камеры">🎥</button>
+                </div>
+              </form>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Статус</label>
+              <select class="form-select" name="status" required>
+                <option value="new" {% if msg.status == "new" %}selected{% endif %}>new</option>
+                <option value="in_progress" {% if msg.status == "in_progress" %}selected{% endif %}>in_progress</option>
+                <option value="done" {% if msg.status == "done" %}selected{% endif %}>done</option>
+                <option value="archived" {% if msg.status == "archived" %}selected{% endif %}>archived</option>
+              </select>
+            </div>
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <button class="btn btn-outline-primary" type="submit">Сохранить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Работа с заявкой</div>
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+          <div class="text-secondary small">
+            {% if work_logs %}Постов: {{ work_logs|length }}{% else %}Постов: 0{% endif %}
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" title="Добавить пост" aria-label="Добавить пост" data-bs-toggle="collapse" data-bs-target="#newWorklog{{ msg.id }}" aria-expanded="false">
+            ＋
+          </button>
+        </div>
+        <div class="collapse mb-3" id="newWorklog{{ msg.id }}">
+          <form method="post" action="{{ url_for('admin_message_worklog_create', msg_id=msg.id) }}">
+            <textarea class="form-control mb-2" name="body" rows="4" required></textarea>
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <button class="btn btn-outline-primary btn-sm" type="submit" title="Сохранить" aria-label="Сохранить">✓</button>
+          </form>
+        </div>
+        {% if work_logs %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 170px;">Дата/время</th>
+                  <th style="width: 160px;">Автор</th>
+                  <th style="width: 34px;" class="text-center" title="Изображения" aria-label="Изображения">🖼</th>
+                  <th style="width: 34px;" class="text-center" title="Аудио" aria-label="Аудио">🎤</th>
+                  <th style="width: 34px;" class="text-center" title="Видео" aria-label="Видео">🎥</th>
+                  <th style="width: 34px;" class="text-center" title="Файлы" aria-label="Файлы">📎</th>
+                  <th>Текст</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for w in work_logs %}
+                  {% set flags = worklog_media_flags.get(w.id, {}) if worklog_media_flags else {} %}
+                  <tr role="button" tabindex="0" data-bs-toggle="collapse" data-bs-target="#worklogEdit{{ w.id }}" aria-expanded="false">
+                    <td class="text-secondary small">{{ w.created_at.strftime("%d.%m.%Y %H:%M") }}</td>
+                    <td class="text-secondary small">{{ w.author or "—" }}</td>
+                    <td class="text-center small">
+                      {% if flags.get('image') %}<span class="text-success" title="Изображения" aria-label="Изображения">🖼</span>{% endif %}
+                    </td>
+                    <td class="text-center small">
+                      {% if flags.get('audio') %}<span class="text-success" title="Аудио" aria-label="Аудио">🎤</span>{% endif %}
+                    </td>
+                    <td class="text-center small">
+                      {% if flags.get('video') %}<span class="text-success" title="Видео" aria-label="Видео">🎥</span>{% endif %}
+                    </td>
+                    <td class="text-center small">
+                      {% if flags.get('file') %}<span class="text-success" title="Файлы" aria-label="Файлы">📎</span>{% endif %}
+                    </td>
+                    <td class="small text-truncate" style="max-width: 420px;">{{ (w.body.splitlines()[0] if w.body else "") }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="7" class="p-0">
+                      <div class="collapse" id="worklogEdit{{ w.id }}">
+                        <div class="p-3 border-top">
+                          <form method="post" action="{{ url_for('admin_message_worklog_update', log_id=w.id) }}" id="worklogUpdate{{ w.id }}">
+                            <textarea class="form-control mb-2" name="body" rows="6" required>{{ w.body }}</textarea>
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                          </form>
+                          {% set medias = worklog_media_by_log.get(w.id, []) if worklog_media_by_log else [] %}
+                          <div class="fw-semibold small text-secondary mb-2">Медиа</div>
+                          {% if medias %}
+                            <div class="table-responsive mb-2">
+                              <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                  <tr>
+                                    <th>Файл</th>
+                                    <th style="width: 90px;">МБ</th>
+                                    <th style="width: 150px;">Дата</th>
+                                    <th style="width: 120px;"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {% for a in medias %}
+                                    <tr>
+                                      <td class="small">
+                                        <div class="fw-semibold">{{ a.original_filename }}</div>
+                                        <form method="post" action="{{ url_for('admin_worklog_media_update', media_id=a.id) }}" class="d-flex gap-2 mt-1">
+                                          <input type="hidden" name="next" value="{{ next_url }}">
+                                          <input class="form-control form-control-sm" name="comment" value="{{ a.comment }}" placeholder="Комментарий">
+                                          <button class="btn btn-outline-secondary btn-sm" type="submit" title="Сохранить комментарий" aria-label="Сохранить комментарий">✓</button>
+                                        </form>
+                                      </td>
+                                      <td class="text-secondary small">
+                                        {% if a.size_bytes %}{{ (a.size_bytes / (1024 * 1024))|round(1) }}{% else %}—{% endif %}
+                                      </td>
+                                      <td class="text-secondary small">{{ a.uploaded_at.strftime("%d.%m.%Y %H:%M") }}</td>
+                                      <td class="text-end">
+                                        <div class="d-inline-flex gap-2">
+                                          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_worklog_media_view', media_id=a.id) }}" target="_blank" title="Открыть" aria-label="Открыть">↗</a>
+                                          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_worklog_media_download', media_id=a.id) }}" title="Скачать" aria-label="Скачать">↓</a>
+                                          <form method="post" action="{{ url_for('admin_worklog_media_delete', media_id=a.id) }}" onsubmit="return confirm('Удалить файл?');" class="m-0">
+                                            <input type="hidden" name="next" value="{{ next_url }}">
+                                            <button class="btn btn-outline-danger btn-sm" type="submit" title="Удалить" aria-label="Удалить">✕</button>
+                                          </form>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  {% endfor %}
+                                </tbody>
+                              </table>
+                            </div>
+                          {% else %}
+                            <div class="text-secondary small mb-2">Файлов нет.</div>
+                          {% endif %}
+                          <form method="post" action="{{ url_for('admin_worklog_media_upload', log_id=w.id) }}" enctype="multipart/form-data" class="mb-3">
+                            <div class="d-flex align-items-center gap-2">
+                              <input class="form-control form-control-sm" name="comment" placeholder="Комментарий к загрузке">
+                              <input class="form-control form-control-sm" type="file" name="files" multiple>
+                              <input type="hidden" name="next" value="{{ next_url }}">
+                              <button class="btn btn-outline-primary btn-sm" type="submit" title="Загрузить" aria-label="Загрузить">⇪</button>
+                              <button class="btn btn-outline-secondary btn-sm" type="button" data-media-paste title="Вставить изображение из буфера" aria-label="Вставить изображение из буфера">📋</button>
+                              <button class="btn btn-outline-secondary btn-sm" type="button" data-media-audio title="Записать аудио с микрофона" aria-label="Записать аудио с микрофона">🎤</button>
+                              <button class="btn btn-outline-secondary btn-sm" type="button" data-media-video title="Записать видео с веб-камеры" aria-label="Записать видео с веб-камеры">🎥</button>
+                            </div>
+                          </form>
+                          <form method="post" action="{{ url_for('admin_message_worklog_delete', log_id=w.id) }}" id="worklogDelete{{ w.id }}" onsubmit="return confirm('Удалить блок?');">
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                          </form>
+                          <div class="d-flex gap-2">
+                            <button class="btn btn-outline-secondary btn-sm" type="submit" form="worklogUpdate{{ w.id }}" title="Сохранить" aria-label="Сохранить">✓</button>
+                            <button class="btn btn-outline-danger btn-sm" type="submit" form="worklogDelete{{ w.id }}" title="Удалить" aria-label="Удалить">✕</button>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-secondary small">Пока нет записей.</div>
+        {% endif %}
       </div>
     </div>
   </div>
   <div class="col-12 col-lg-4">
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
-        <div class="fw-semibold mb-2">Контакты</div>
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+          <div class="fw-semibold">Контакты</div>
+          <button class="btn btn-outline-secondary btn-sm" type="button" title="Редактировать контакты" aria-label="Редактировать контакты" data-bs-toggle="collapse" data-bs-target="#editClient{{ msg.id }}" aria-expanded="false">
+            ✎
+          </button>
+        </div>
         <div class="text-secondary small">
           {% if msg.name %}<div><span class="text-secondary">Имя:</span> {{ msg.name }}</div>{% endif %}
           {% if msg.company %}<div><span class="text-secondary">Компания:</span> {{ msg.company }}</div>{% endif %}
-          {% if msg.phone %}<div><span class="text-secondary">Телефон:</span> {{ msg.phone }}</div>{% endif %}
+          {% if msg.phone %}
+            <div><span class="text-secondary">Телефоны:</span></div>
+            {% for p in msg.phone.splitlines() %}
+              {% if p %}<div>{{ p }}</div>{% endif %}
+            {% endfor %}
+          {% endif %}
           {% if msg.email %}<div><span class="text-secondary">E-mail:</span> {{ msg.email }}</div>{% endif %}
+          {% if msg.telegram %}
+            <div class="mt-2"><span class="text-secondary">Telegram:</span></div>
+            {% for t in msg.telegram.splitlines() %}
+              {% if t %}<div>{{ t }}</div>{% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if msg.whatsapp %}
+            <div class="mt-2"><span class="text-secondary">WhatsApp:</span></div>
+            {% for w in msg.whatsapp.splitlines() %}
+              {% if w %}<div>{{ w }}</div>{% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if msg.anydesk_id %}
+            <div class="mt-2"><span class="text-secondary">AnyDesk:</span></div>
+            {% for a in msg.anydesk_id.splitlines() %}
+              {% if a %}<div>{{ a }}</div>{% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+        <div class="collapse mt-3" id="editClient{{ msg.id }}">
+          <form method="post" action="{{ url_for('admin_message_client_update', msg_id=msg.id) }}">
+            <div class="mb-2">
+              <label class="form-label mb-1">Имя</label>
+              <input class="form-control" name="name" value="{{ msg.name }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1">Компания</label>
+              <input class="form-control" name="company" value="{{ msg.company }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1">E-mail</label>
+              <input class="form-control" name="email" value="{{ msg.email }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1">Телефоны</label>
+              <textarea class="form-control" name="phone" rows="2">{{ msg.phone }}</textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1">Telegram</label>
+              <textarea class="form-control" name="telegram" rows="2">{{ msg.telegram }}</textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1">WhatsApp</label>
+              <textarea class="form-control" name="whatsapp" rows="2">{{ msg.whatsapp }}</textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label mb-1">AnyDesk ID</label>
+              <textarea class="form-control" name="anydesk_id" rows="2">{{ msg.anydesk_id }}</textarea>
+            </div>
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <div class="d-flex justify-content-end">
+              <button class="btn btn-outline-primary btn-sm" type="submit" title="Сохранить контакты" aria-label="Сохранить контакты">✓</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm mt-3">
       <div class="card-body">
-        <div class="fw-semibold mb-2">Статус</div>
-        <form method="post" action="{{ url_for('admin_message_status', msg_id=msg.id) }}">
-          <select class="form-select mb-3" name="status" required>
-            <option value="new" {% if msg.status == "new" %}selected{% endif %}>new</option>
-            <option value="in_progress" {% if msg.status == "in_progress" %}selected{% endif %}>in_progress</option>
-            <option value="done" {% if msg.status == "done" %}selected{% endif %}>done</option>
-          </select>
-          <button class="btn btn-primary w-100" type="submit">Сохранить</button>
+        <div class="fw-semibold mb-2">Файлы</div>
+        {% set from_files = attachments|selectattr('direction', 'equalto', 'from_client')|list if attachments else [] %}
+        {% set to_files = attachments|selectattr('direction', 'equalto', 'to_client')|list if attachments else [] %}
+
+        <div class="fw-semibold small text-secondary mb-2">От клиента</div>
+        {% if from_files %}
+          <div class="table-responsive mb-2">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Файл</th>
+                  <th style="width: 80px;">МБ</th>
+                  <th style="width: 140px;">Дата</th>
+                  <th style="width: 86px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in from_files %}
+                  <tr>
+                    <td class="small">
+                      <div class="fw-semibold">{{ a.original_filename }}</div>
+                      {% if a.note %}<div class="text-secondary">{{ a.note }}</div>{% endif %}
+                    </td>
+                    <td class="text-secondary small">
+                      {% if a.size_bytes %}{{ (a.size_bytes / (1024 * 1024))|round(1) }}{% else %}—{% endif %}
+                    </td>
+                    <td class="text-secondary small">{{ a.uploaded_at.strftime("%d.%m.%Y %H:%M") }}</td>
+                    <td class="text-end">
+                      <div class="d-inline-flex gap-2">
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_message_attachment_download', att_id=a.id) }}" title="Скачать" aria-label="Скачать">↓</a>
+                        <form method="post" action="{{ url_for('admin_message_attachment_delete', att_id=a.id) }}" onsubmit="return confirm('Удалить файл?');" class="m-0">
+                          <input type="hidden" name="next" value="{{ next_url }}">
+                          <button class="btn btn-outline-danger btn-sm" type="submit" title="Удалить" aria-label="Удалить">✕</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-secondary small mb-3">Файлов пока нет.</div>
+        {% endif %}
+        <form method="post" action="{{ url_for('admin_message_upload', msg_id=msg.id) }}" enctype="multipart/form-data" class="mb-4">
+          <input type="hidden" name="direction" value="from_client">
+          <div class="mb-2">
+            <label class="form-label">Пометка</label>
+            <input class="form-control form-control-sm" name="note" placeholder="Например: логи, дамп базы, скриншот ошибки">
+          </div>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <input class="form-control form-control-sm" type="file" name="files" multiple>
+            <button class="btn btn-outline-primary btn-sm" type="submit" title="Загрузить файлы" aria-label="Загрузить файлы">⇪</button>
+          </div>
+          <input type="hidden" name="next" value="{{ next_url }}">
+        </form>
+
+        <div class="fw-semibold small text-secondary mb-2">Для клиента</div>
+        {% if to_files %}
+          <div class="table-responsive mb-2">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Файл</th>
+                  <th style="width: 80px;">МБ</th>
+                  <th style="width: 140px;">Дата</th>
+                  <th style="width: 86px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in to_files %}
+                  <tr>
+                    <td class="small">
+                      <div class="fw-semibold">{{ a.original_filename }}</div>
+                      {% if a.note %}<div class="text-secondary">{{ a.note }}</div>{% endif %}
+                    </td>
+                    <td class="text-secondary small">
+                      {% if a.size_bytes %}{{ (a.size_bytes / (1024 * 1024))|round(1) }}{% else %}—{% endif %}
+                    </td>
+                    <td class="text-secondary small">{{ a.uploaded_at.strftime("%d.%m.%Y %H:%M") }}</td>
+                    <td class="text-end">
+                      <div class="d-inline-flex gap-2">
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_message_attachment_download', att_id=a.id) }}" title="Скачать" aria-label="Скачать">↓</a>
+                        <form method="post" action="{{ url_for('admin_message_attachment_delete', att_id=a.id) }}" onsubmit="return confirm('Удалить файл?');" class="m-0">
+                          <input type="hidden" name="next" value="{{ next_url }}">
+                          <button class="btn btn-outline-danger btn-sm" type="submit" title="Удалить" aria-label="Удалить">✕</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-secondary small mb-3">Файлов пока нет.</div>
+        {% endif %}
+        <form method="post" action="{{ url_for('admin_message_upload', msg_id=msg.id) }}" enctype="multipart/form-data">
+          <input type="hidden" name="direction" value="to_client">
+          <div class="mb-2">
+            <label class="form-label">Пометка</label>
+            <input class="form-control form-control-sm" name="note" placeholder="Например: архив, инструкция, патч, отчёт">
+          </div>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <input class="form-control form-control-sm" type="file" name="files" multiple>
+            <button class="btn btn-outline-primary btn-sm" type="submit" title="Загрузить файлы" aria-label="Загрузить файлы">⇪</button>
+          </div>
+          <input type="hidden" name="next" value="{{ next_url }}">
         </form>
       </div>
     </div>
   </div>
 </div>
+<script>
+  (() => {
+    const addFiles = (input, files) => {
+      if (!input || !files || !files.length) return;
+      const dt = new DataTransfer();
+      Array.from(input.files || []).forEach((f) => dt.items.add(f));
+      Array.from(files).forEach((f) => dt.items.add(f));
+      input.files = dt.files;
+    };
+
+    const extFromMime = (mime, fallback) => {
+      const m = (mime || "").toLowerCase();
+      if (m.includes("png")) return "png";
+      if (m.includes("jpeg") || m.includes("jpg")) return "jpg";
+      if (m.includes("webp")) return "webp";
+      if (m.includes("gif")) return "gif";
+      if (m.includes("ogg")) return "ogg";
+      return fallback;
+    };
+
+    const fileName = (prefix, mime) => {
+      const ext = extFromMime(mime, "webm");
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      return `${prefix}_${ts}.${ext}`;
+    };
+
+    const pickMimeType = (candidates) => {
+      if (!window.MediaRecorder || typeof window.MediaRecorder.isTypeSupported !== "function") return "";
+      for (const t of candidates) {
+        if (window.MediaRecorder.isTypeSupported(t)) return t;
+      }
+      return "";
+    };
+
+    const stopTracks = (stream) => {
+      try {
+        (stream.getTracks ? stream.getTracks() : []).forEach((t) => t.stop());
+      } catch (e) {
+      }
+    };
+
+    const makeRecorder = async (kind) => {
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+        throw new Error("no_getusermedia");
+      }
+      const constraints =
+        kind === "audio" ? { audio: true } : { audio: true, video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const mimeType =
+        kind === "audio"
+          ? pickMimeType(["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm"])
+          : pickMimeType(["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]);
+      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const chunks = [];
+      rec.addEventListener("dataavailable", (ev) => {
+        if (ev.data && ev.data.size) chunks.push(ev.data);
+      });
+      return { rec, stream, chunks, mimeType };
+    };
+
+    const bindForm = (form) => {
+      const input = form.querySelector('input[type="file"][name="files"]');
+      const noteInput = form.querySelector('input[name="comment"]');
+      const btnPaste = form.querySelector("[data-media-paste]");
+      const btnAudio = form.querySelector("[data-media-audio]");
+      const btnVideo = form.querySelector("[data-media-video]");
+      let armedPaste = false;
+
+      if (!input) return;
+
+      const isImageFile = (f) => {
+        if (!f) return false;
+        const t = (f.type || "").toLowerCase();
+        if (t.startsWith("image/")) return true;
+        const n = (f.name || "").toLowerCase();
+        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".webp") || n.endsWith(".gif") || n.endsWith(".bmp");
+      };
+
+      const tryReadClipboardImage = async () => {
+        if (!navigator.clipboard || typeof navigator.clipboard.read !== "function") return null;
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const type = (item.types || []).find((t) => (t || "").startsWith("image/"));
+          if (!type) continue;
+          const blob = await item.getType(type);
+          return new File([blob], fileName("paste", type), { type });
+        }
+        return null;
+      };
+
+      const extractImageFilesFromPaste = (e) => {
+        const dt = e.clipboardData;
+        if (!dt || !dt.items) return;
+        const files = [];
+        for (const it of dt.items) {
+          if (!it || it.kind !== "file") continue;
+          const f = it.getAsFile();
+          if (!isImageFile(f)) continue;
+          files.push(new File([f], fileName("paste", f.type), { type: f.type || "image/png" }));
+        }
+        return files;
+      };
+
+      const handlePasteEvent = (e) => {
+        const files = extractImageFilesFromPaste(e);
+        if (files && files.length) {
+          e.preventDefault();
+          addFiles(input, files);
+          armedPaste = false;
+        }
+      };
+
+      form.addEventListener("paste", (e) => {
+        handlePasteEvent(e);
+      });
+
+      if (btnPaste) {
+        document.addEventListener(
+          "paste",
+          (e) => {
+            if (!armedPaste) return;
+            if (!form.contains(document.activeElement)) return;
+            handlePasteEvent(e);
+          },
+          true
+        );
+
+        btnPaste.addEventListener("click", async () => {
+          try {
+            const f = await tryReadClipboardImage();
+            if (f) {
+              addFiles(input, [f]);
+              return;
+            }
+          } catch (e) {
+          }
+          armedPaste = true;
+          if (noteInput) noteInput.focus();
+          alert("Нажмите Ctrl+V, чтобы вставить изображение из буфера обмена.");
+        });
+      }
+
+      const bindRecordButton = (btn, kind) => {
+        if (!btn) return;
+        let state = null;
+        const idleText = btn.textContent;
+        const idleClassName = btn.className;
+        const start = async () => {
+          try {
+            state = await makeRecorder(kind);
+          } catch (e) {
+            alert(kind === "audio" ? "Не удалось получить доступ к микрофону." : "Не удалось получить доступ к камере.");
+            state = null;
+            return;
+          }
+          btn.className = idleClassName;
+          btn.classList.remove("btn-outline-secondary");
+          btn.classList.add("btn-danger", "recording-indicator");
+          btn.textContent = "● REC";
+          state.rec.start();
+        };
+        const stop = () => {
+          if (!state) return;
+          state.rec.addEventListener(
+            "stop",
+            () => {
+              const blob = new Blob(state.chunks, { type: state.mimeType || (kind === "audio" ? "audio/webm" : "video/webm") });
+              addFiles(input, [new File([blob], fileName(kind, blob.type), { type: blob.type })]);
+              stopTracks(state.stream);
+              state = null;
+              btn.className = idleClassName;
+              btn.textContent = idleText;
+            },
+            { once: true }
+          );
+          try {
+            state.rec.stop();
+          } catch (e) {
+            stopTracks(state.stream);
+            state = null;
+            btn.className = idleClassName;
+            btn.textContent = idleText;
+          }
+        };
+        btn.addEventListener("click", () => {
+          if (state) stop();
+          else start();
+        });
+      };
+
+      bindRecordButton(btnAudio, "audio");
+      bindRecordButton(btnVideo, "video");
+    };
+
+    document.querySelectorAll('form[enctype="multipart/form-data"]').forEach((f) => {
+      if (f.querySelector("[data-media-paste]")) bindForm(f);
+    });
+  })();
+</script>
 {% endblock %}

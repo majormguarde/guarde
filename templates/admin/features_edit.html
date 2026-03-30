@@ -1,0 +1,666 @@
+{% extends "admin/base.html" %}
+
+{% macro kf_icon(name) %}
+  {% if name == 'user' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z"/></svg>
+  {% elif name == 'clock' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 1a10 10 0 1 0 10 10A10 10 0 0 0 12 1Zm1 11h5v2h-7V6h2Z"/></svg>
+  {% elif name == 'monitor' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M4 4h16v10H4V4Zm0 12h6v2H4v-2Zm8 0h8v2h-8v-2ZM6 6v6h12V6H6Z"/></svg>
+  {% elif name == 'shield' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v6h-2V8Zm0 8h2v2h-2v-2Z"/></svg>
+  {% elif name == 'link' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M10.59 13.41a1 1 0 0 1 0-1.41l3.53-3.53a3 3 0 0 1 4.24 4.24l-2.12 2.12a3 3 0 0 1-4.24 0 1 1 0 1 1-1.41 1.41 5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07l-3.53 3.53a1 1 0 0 1-1.41 0ZM13.41 10.59a1 1 0 0 1 0 1.41l-3.53 3.53a3 3 0 0 1-4.24-4.24l2.12-2.12a3 3 0 0 1 4.24 0 1 1 0 1 1 1.41-1.41 5 5 0 0 0-7.07 0L4.22 11.88a5 5 0 0 0 7.07 7.07l3.53-3.53a1 1 0 0 1 1.41 0Z"/></svg>
+  {% elif name == 'database' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2c4.42 0 8 1.34 8 3s-3.58 3-8 3-8-1.34-8-3 3.58-3 8-3Zm8 7c0 1.66-3.58 3-8 3s-8-1.34-8-3V7c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Zm0 4c0 1.66-3.58 3-8 3s-8-1.34-8-3v-2c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Zm0 4c0 1.66-3.58 3-8 3s-8-1.34-8-3v-2c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Z"/></svg>
+  {% elif name == 'camera' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 4 7.5 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-2.5L15 4H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>
+  {% elif name == 'cloud' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 18H6a4 4 0 1 1 0-8 5 5 0 0 1 9.8-1.5A4 4 0 0 1 19 18Z"/></svg>
+  {% elif name == 'network' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm0 14a3 3 0 1 0 3 3 3 3 0 0 0-3-3ZM4 10a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm16 0a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm-8-2a1 1 0 0 1 1 1v2h2a1 1 0 0 1 0 2h-2v2a1 1 0 0 1-2 0v-2H9a1 1 0 0 1 0-2h2V9a1 1 0 0 1 1-1Z"/></svg>
+  {% elif name == 'bell' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2Zm6-6V11a6 6 0 1 0-12 0v5L4 18v1h16v-1l-2-2Z"/></svg>
+  {% elif name == 'tools' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 7a6 6 0 0 1-7.5 5.8l-7.6 7.6a2 2 0 0 1-2.8-2.8l7.6-7.6A6 6 0 0 1 17 3l-3 3 4 4 3-3Z"/></svg>
+  {% elif name == 'report' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM7 12h10v2H7v-2Zm0 4h10v2H7v-2Zm0-8h6v2H7V8Z"/></svg>
+  {% elif name == 'sla' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v5h-2V8Zm0 7h2v2h-2v-2Z"/></svg>
+  {% elif name == 'checklist' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM10 17H7v-2h3v2Zm0-4H7v-2h3v2Zm0-4H7V7h3v2Zm7 8h-5v-2h5v2Zm0-4h-5v-2h5v2Zm0-4h-5V7h5v2Z"/></svg>
+  {% elif name == 'plan' %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM7 12h10v2H7v-2Zm0 4h10v2H7v-2Zm0-8h6v2H7V8Z"/></svg>
+  {% else %}
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z"/></svg>
+  {% endif %}
+{% endmacro %}
+
+{% block title %}Админка — {{ title_block.body if title_block else slug }}{% endblock %}
+
+{% block content %}
+<style>
+  #featureContentPreview blockquote {
+    border-left: 4px solid #0d6efd;
+    padding: 0.5rem 1rem;
+    color: #495057;
+    font-style: italic;
+    background-color: #f8f9fa;
+    margin-bottom: 1rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+  }
+</style>
+<div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+  <div>
+    <div class="text-secondary small">Страница возможностей</div>
+    <h1 class="h4 mb-0 font-monospace">{{ slug }}</h1>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_features_list') }}">Назад</a>
+    <a class="btn btn-outline-secondary btn-sm" href="/features/{{ slug }}" target="_blank">Сайт</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin_features_save', slug=slug) }}">
+          <div class="mb-3">
+            <label class="form-label">Заголовок</label>
+            <input class="form-control" name="title" value="{{ title_block.body if title_block else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Подзаголовок</label>
+            <input id="featureKeyFeaturesTitle" class="form-control" name="key_features_title" value="{{ key_features_title_block.body if key_features_title_block else '' }}" data-kf-input>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Анонс</label>
+            <textarea id="featureKeyFeaturesAnnounce" class="form-control" name="key_features_body" rows="3" data-kf-input>{{ key_features_body_block.body if key_features_body_block else '' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Элементы</label>
+            <div class="d-grid gap-2">
+              {% for idx in [1,2,3,4] %}
+                {% set icon_block = blocks.get(key_features_prefix ~ '_kf_' ~ idx ~ '_icon') if blocks else None %}
+                {% set title_item_block = blocks.get(key_features_prefix ~ '_kf_' ~ idx ~ '_title') if blocks else None %}
+                {% set desc_item_block = blocks.get(key_features_prefix ~ '_kf_' ~ idx ~ '_desc') if blocks else None %}
+                <div class="border rounded p-3">
+                  <div class="row g-2 align-items-start">
+                    <div class="col-12 col-md-4">
+                      <label class="form-label small text-secondary mb-1">Иконка</label>
+                      <select class="form-select" name="kf_{{ idx }}_icon" data-kf-input>
+                        {% set selected_icon = (icon_block.body if icon_block and icon_block.body else 'user') %}
+                        <option value="user" {{ 'selected' if selected_icon == 'user' else '' }}>Пользователь</option>
+                        <option value="clock" {{ 'selected' if selected_icon == 'clock' else '' }}>Время</option>
+                        <option value="monitor" {{ 'selected' if selected_icon == 'monitor' else '' }}>Монитор</option>
+                        <option value="shield" {{ 'selected' if selected_icon == 'shield' else '' }}>Щит</option>
+                        <option value="link" {{ 'selected' if selected_icon == 'link' else '' }}>Связь</option>
+                        <option value="database" {{ 'selected' if selected_icon == 'database' else '' }}>База</option>
+                        <option value="camera" {{ 'selected' if selected_icon == 'camera' else '' }}>Камера</option>
+                        <option value="cloud" {{ 'selected' if selected_icon == 'cloud' else '' }}>Облако</option>
+                        <option value="network" {{ 'selected' if selected_icon == 'network' else '' }}>Сеть</option>
+                        <option value="bell" {{ 'selected' if selected_icon == 'bell' else '' }}>Уведомления</option>
+                        <option value="tools" {{ 'selected' if selected_icon == 'tools' else '' }}>Инструменты</option>
+                        <option value="report" {{ 'selected' if selected_icon == 'report' else '' }}>Отчёт</option>
+                        <option value="sla" {{ 'selected' if selected_icon == 'sla' else '' }}>SLA</option>
+                        <option value="checklist" {{ 'selected' if selected_icon == 'checklist' else '' }}>Чек-лист</option>
+                        <option value="plan" {{ 'selected' if selected_icon == 'plan' else '' }}>План</option>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-8">
+                      <label class="form-label small text-secondary mb-1">Заголовок</label>
+                      <input class="form-control" name="kf_{{ idx }}_title" value="{{ title_item_block.body if title_item_block else '' }}" data-kf-input>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label small text-secondary mb-1">Текст</label>
+                      <textarea class="form-control" name="kf_{{ idx }}_desc" rows="2" data-kf-input>{{ desc_item_block.body if desc_item_block else '' }}</textarea>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Текст / HTML</label>
+            <div class="btn-toolbar flex-wrap gap-2 mb-2" role="toolbar" aria-label="Редактор HTML">
+              <div class="btn-group btn-group-sm" role="group" aria-label="Форматирование">
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="bold" aria-label="Жирный" title="Жирный">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8.21 13c1.514 0 2.743-1.078 2.743-2.463 0-1.19-.746-2.12-1.868-2.375V8.1c.868-.28 1.43-1.043 1.43-2.03C10.515 4.4 9.353 3 7.615 3H4.5v10h3.71Zm-2.21-8h1.59c.837 0 1.425.444 1.425 1.168 0 .77-.577 1.212-1.538 1.212H6V5Zm0 3.55h1.78c1.01 0 1.64.49 1.64 1.29 0 .828-.63 1.26-1.7 1.26H6V8.55Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="italic" aria-label="Курсив" title="Курсив">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M7.991 11.674 9.53 4.326h2.242V3H6.227v1.326h1.936l-1.54 7.348H4.227V13h5.545v-1.326H7.991Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="h2" aria-label="Заголовок H2" title="Заголовок H2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M2.5 4a.5.5 0 0 1 .5.5V7h3V4.5a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0V8H3v3.5a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Z"/>
+                    <path d="M9.596 7.012a2 2 0 0 1 3.38 1.414c0 .869-.482 1.48-1.12 2.054-.565.51-1.283 1.01-1.283 1.51v.01h2.5v1H9.5v-.968c0-.866.485-1.35 1.13-1.93.551-.49 1.27-1.01 1.27-1.676a1 1 0 1 0-1.707-.707l-.597-.707Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="h3" aria-label="Заголовок H3" title="Заголовок H3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M2.5 4a.5.5 0 0 1 .5.5V7h3V4.5a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0V8H3v3.5a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Z"/>
+                    <text x="10.2" y="11.4" font-size="9.5" font-weight="700" font-family="system-ui, -apple-system, Segoe UI, Arial">3</text>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="p" aria-label="Параграф" title="Параграф">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8 1a3.5 3.5 0 0 0 0 7h1v6.5a.5.5 0 0 0 1 0V2h1v12.5a.5.5 0 0 0 1 0V1H8Z"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Списки и ссылки">
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="ul" aria-label="Маркированный список" title="Маркированный список">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M2.5 4a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm0 3a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm0 3a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z"/>
+                    <path d="M5 4.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1h-8a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1h-8a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1h-8a.5.5 0 0 1-.5-.5Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="ol" aria-label="Нумерованный список" title="Нумерованный список">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M2.5 4.5a.5.5 0 0 1 .5-.5h.5V3h-.5a.5.5 0 0 1 0-1h1a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H3.5v.5h.5a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5v-1Zm0 5a.5.5 0 0 1 .5-.5h.5V8h-.5a.5.5 0 0 1 0-1h1a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H3.5v.5h.5a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5v-1Z"/>
+                    <path d="M6 4.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="link" aria-label="Ссылка" title="Ссылка">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M6.354 5.5H4.5A2.5 2.5 0 0 0 4.5 10h1a.5.5 0 0 1 0 1h-1A3.5 3.5 0 1 1 4.5 4.5h1.854a.5.5 0 0 1 0 1Z"/>
+                    <path d="M9.646 10.5H11.5A2.5 2.5 0 0 0 11.5 6h-1a.5.5 0 0 1 0-1h1A3.5 3.5 0 1 1 11.5 11.5H9.646a.5.5 0 0 1 0-1Z"/>
+                    <path d="M5.5 8a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1H6a.5.5 0 0 1-.5-.5Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="br" aria-label="Перенос строки" title="Перенос строки">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M10 3a.5.5 0 0 1 .5.5V9a2 2 0 0 1-2 2H4.707l1.147 1.146a.5.5 0 0 1-.708.708l-2-2a.5.5 0 0 1 0-.708l2-2a.5.5 0 1 1 .708.708L4.707 10H8.5A1 1 0 0 0 9.5 9V3.5A.5.5 0 0 1 10 3Z"/>
+                    <path d="M12.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-1 0v-9a.5.5 0 0 1 .5-.5Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="hr" aria-label="Горизонтальная линия" title="Горизонтальная линия">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M2 8h12v1H2z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" data-html-action="blockquote" aria-label="Цитата" title="Цитата">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M12 12a1 1 0 0 0 1-1V8.558a1 1 0 0 0-1-1h-1.388c0-.351.021-.703.062-1.054.062-.372.166-.703.31-.992.145-.29.331-.517.559-.683.227-.186.516-.279.868-.279V3c-.579 0-1.085.124-1.52.372a3.322 3.322 0 0 0-1.085.992 4.92 4.92 0 0 0-.62 1.458A7.712 7.712 0 0 0 9 7.558V11a1 1 0 0 0 1 1h2Zm-6 0a1 1 0 0 0 1-1V8.558a1 1 0 0 0-1-1H4.612c0-.351.021-.703.062-1.054.062-.372.166-.703.31-.992.145-.29.331-.517.559-.683.227-.186.516-.279.868-.279V3c-.579 0-1.085.124-1.52.372a3.322 3.322 0 0 0-1.085.992 4.92 4.92 0 0 0-.62 1.458A7.712 7.712 0 0 0 3 7.558V11a1 1 0 0 0 1 1h2Z"/>
+                  </svg>
+                </button>
+                <button class="btn btn-outline-danger d-inline-flex align-items-center justify-content-center" type="button" data-html-action="strip" aria-label="Очистить от тегов" title="Очистить от тегов">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M6.5 2a.5.5 0 0 0 0 1H7v1H3.5a.5.5 0 0 0 0 1H4l1 9a1 1 0 0 0 1 .9h4a1 1 0 0 0 1-.9l.33-3H10.3l-.3 2.7a.5.5 0 0 1-.5.45h-4a.5.5 0 0 1-.5-.45L4.5 5h7a.5.5 0 0 0 0-1H9V3h.5a.5.5 0 0 0 0-1h-3Z"/>
+                    <path d="M15.854 4.146a.5.5 0 0 0-.708 0l-8 8a.5.5 0 0 0 .708.708l8-8a.5.5 0 0 0 0-.708Z"/>
+                  </svg>
+                </button>
+                <button id="undoBtn" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" type="button" aria-label="Отменить" title="Отменить (Ctrl+Z)" disabled>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966a.25.25 0 0 0 .41-.192z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <textarea id="featureContent" class="form-control font-monospace" name="content" rows="42">{{ content_block.body if content_block else '' }}</textarea>
+          </div>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="fw-semibold">Предпросмотр</div>
+          <div class="text-secondary small">рендерится как HTML</div>
+        </div>
+        <div id="featureContentPreview" class="content-body border rounded-3 p-3 bg-white">
+          {% set ns = namespace(has_kf=false) %}
+          {% if blocks %}
+            {% for idx in [1,2,3,4] %}
+              {% set t = blocks.get(key_features_prefix ~ '_kf_' ~ idx ~ '_title') %}
+              {% if t and t.body and t.body.strip() %}
+                {% set ns.has_kf = true %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if ns.has_kf %}
+            <div class="mb-4">
+              <h2 class="h5 fw-semibold mb-2">{{ key_features_title_block.body|e if key_features_title_block else '' }}</h2>
+              {% if key_features_body_block and key_features_body_block.body and key_features_body_block.body.strip() %}
+                <p class="text-secondary mb-3">{{ key_features_body_block.body|e }}</p>
+              {% endif %}
+              <div class="row g-4">
+                {% for idx in [1,2,3,4] %}
+                  {% set t = blocks.get(key_features_prefix ~ '_kf_' ~ idx ~ '_title') %}
+                  {% set d = blocks.get(key_features_prefix ~ '_kf_' ~ idx ~ '_desc') %}
+                  {% set i = blocks.get(key_features_prefix ~ '_kf_' ~ idx ~ '_icon') %}
+                  {% if t and t.body and t.body.strip() %}
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-start gap-3">
+                        <div class="icon-tile icon-tile-blue flex-shrink-0">
+                          {{ kf_icon(i.body.strip() if i and i.body else 'user') }}
+                        </div>
+                        <div>
+                          <h5 class="fw-semibold mb-2">{{ t.body|e }}</h5>
+                          {% if d and d.body and d.body.strip() %}
+                            <p class="text-secondary mb-0">{{ d.body|e }}</p>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% if content_block and content_block.body %}<hr class="my-4 opacity-75">{% endif %}
+            </div>
+          {% endif %}
+          {{ content_block.body|safe if content_block else '' }}
+        </div>
+      </div>
+    </div>
+    {% if image %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Текущее изображение</div>
+        <img src="{{ url_for('uploads', filename=image.stored_filename) }}" alt="" class="img-fluid rounded">
+        <div class="small text-secondary mt-2">{{ image.title or image.stored_filename }}</div>
+      </div>
+    </div>
+    {% endif %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">{% if image %}Заменить изображение{% else %}Загрузить изображение{% endif %}</div>
+        <form method="post" action="{{ url_for('admin_assets_upload') }}" enctype="multipart/form-data">
+          <input type="hidden" name="kind" value="image">
+          <input type="hidden" name="slot_key" value="{{ image_slot }}">
+          <input type="hidden" name="next" value="{{ url_for('admin_features_edit', slug=slug) }}">
+          <div class="mb-2">
+            <label class="form-label">Название (опционально)</label>
+            <input type="text" class="form-control form-control-sm" name="title" value="{{ title_block.body if title_block else '' }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Описание (опционально)</label>
+            <textarea class="form-control form-control-sm" name="description" rows="2"></textarea>
+          </div>
+          <div class="mb-2">
+            <input type="file" class="form-control form-control-sm" name="file" accept="image/*" required>
+          </div>
+          <button type="submit" class="btn btn-outline-primary btn-sm">Загрузить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const textarea = document.getElementById("featureContent");
+    const keyFeaturesTitleInput = document.getElementById("featureKeyFeaturesTitle");
+    const keyFeaturesAnnounceTextarea = document.getElementById("featureKeyFeaturesAnnounce");
+    const keyFeaturesInputs = Array.from(document.querySelectorAll("[data-kf-input]"));
+    const preview = document.getElementById("featureContentPreview");
+    const undoBtn = document.getElementById("undoBtn");
+    if (!textarea || !preview) return;
+
+    let dragSelection = null;
+    let lastSelection = { start: 0, end: 0 };
+    
+    // Undo system
+    const history = [];
+    let historyTimeout = null;
+    
+    const saveToHistory = () => {
+      const val = textarea.value ?? "";
+      if (history.length > 0 && history[history.length - 1].content === val) return;
+      history.push({
+        content: val,
+        selection: { start: textarea.selectionStart, end: textarea.selectionEnd }
+      });
+      if (history.length > 100) history.shift(); // Limit history
+      if (undoBtn) undoBtn.disabled = history.length <= 1;
+    };
+
+    const undo = () => {
+      if (historyTimeout) {
+        clearTimeout(historyTimeout);
+        historyTimeout = null;
+      }
+      
+      // If current value is not in history (e.g. typing in progress), save it first
+      // so we can undo it.
+      const currentVal = textarea.value ?? "";
+      if (history.length > 0 && history[history.length - 1].content !== currentVal) {
+        saveToHistory();
+      }
+
+      if (history.length <= 1) return;
+      history.pop(); // Remove current state
+      const last = history[history.length - 1];
+      textarea.value = last.content;
+      preview.innerHTML = buildPreviewHtml();
+      textarea.focus();
+      textarea.setSelectionRange(last.selection.start, last.selection.end);
+      if (undoBtn) undoBtn.disabled = history.length <= 1;
+    };
+
+    const debouncedSaveToHistory = () => {
+      if (historyTimeout) clearTimeout(historyTimeout);
+      historyTimeout = setTimeout(saveToHistory, 1000);
+    };
+
+    // Initial state
+    saveToHistory();
+
+    if (undoBtn) {
+      undoBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        undo();
+      });
+    }
+
+    const rememberSelection = () => {
+      if (document.activeElement === textarea) {
+        lastSelection = {
+          start: textarea.selectionStart ?? 0,
+          end: textarea.selectionEnd ?? 0,
+        };
+      }
+    };
+
+    const getLiveRange = () => {
+      return {
+        start: textarea.selectionStart ?? 0,
+        end: textarea.selectionEnd ?? 0,
+      };
+    };
+
+    const escapeHtml = (input) => {
+      return String(input || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    };
+
+    const iconSvg = (name) => {
+      const n = (name || "").trim();
+      if (n === "clock") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 1a10 10 0 1 0 10 10A10 10 0 0 0 12 1Zm1 11h5v2h-7V6h2Z"/></svg>`;
+      if (n === "monitor") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M4 4h16v10H4V4Zm0 12h6v2H4v-2Zm8 0h8v2h-8v-2ZM6 6v6h12V6H6Z"/></svg>`;
+      if (n === "shield") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v6h-2V8Zm0 8h2v2h-2v-2Z"/></svg>`;
+      if (n === "link") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M10.59 13.41a1 1 0 0 1 0-1.41l3.53-3.53a3 3 0 0 1 4.24 4.24l-2.12 2.12a3 3 0 0 1-4.24 0 1 1 0 1 1-1.41 1.41 5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07l-3.53 3.53a1 1 0 0 1-1.41 0ZM13.41 10.59a1 1 0 0 1 0 1.41l-3.53 3.53a3 3 0 0 1-4.24-4.24l2.12-2.12a3 3 0 0 1 4.24 0 1 1 0 1 1 1.41-1.41 5 5 0 0 0-7.07 0L4.22 11.88a5 5 0 0 0 7.07 7.07l3.53-3.53a1 1 0 0 1 1.41 0Z"/></svg>`;
+      if (n === "database") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2c4.42 0 8 1.34 8 3s-3.58 3-8 3-8-1.34-8-3 3.58-3 8-3Zm8 7c0 1.66-3.58 3-8 3s-8-1.34-8-3V7c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Zm0 4c0 1.66-3.58 3-8 3s-8-1.34-8-3v-2c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Zm0 4c0 1.66-3.58 3-8 3s-8-1.34-8-3v-2c1.5 1.45 4.65 2 8 2s6.5-.55 8-2v2Z"/></svg>`;
+      if (n === "camera") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 4 7.5 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-2.5L15 4H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>`;
+      if (n === "cloud") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 18H6a4 4 0 1 1 0-8 5 5 0 0 1 9.8-1.5A4 4 0 0 1 19 18Z"/></svg>`;
+      if (n === "network") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm0 14a3 3 0 1 0 3 3 3 3 0 0 0-3-3ZM4 10a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm16 0a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm-8-2a1 1 0 0 1 1 1v2h2a1 1 0 0 1 0 2h-2v2a1 1 0 0 1-2 0v-2H9a1 1 0 0 1 0-2h2V9a1 1 0 0 1 1-1Z"/></svg>`;
+      if (n === "bell") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2Zm6-6V11a6 6 0 1 0-12 0v5L4 18v1h16v-1l-2-2Z"/></svg>`;
+      if (n === "tools") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 7a6 6 0 0 1-7.5 5.8l-7.6 7.6a2 2 0 0 1-2.8-2.8l7.6-7.6A6 6 0 0 1 17 3l-3 3 4 4 3-3Z"/></svg>`;
+      if (n === "report") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM7 12h10v2H7v-2Zm0 4h10v2H7v-2Zm0-8h6v2H7V8Z"/></svg>`;
+      if (n === "sla") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4Zm-1 6h2v5h-2V8Zm0 7h2v2h-2v-2Z"/></svg>`;
+      if (n === "checklist") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM10 17H7v-2h3v2Zm0-4H7v-2h3v2Zm0-4H7V7h3v2Zm7 8h-5v-2h5v2Zm0-4h-5v-2h5v2Zm0-4h-5V7h5v2Z"/></svg>`;
+      if (n === "plan") return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM7 12h10v2H7v-2Zm0 4h10v2H7v-2Zm0-8h6v2H7V8Z"/></svg>`;
+      return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z"/></svg>`;
+    };
+
+    const buildKeyFeaturesPreviewHtml = () => {
+      const subtitle = (keyFeaturesTitleInput?.value ?? "").trim();
+      const announce = (keyFeaturesAnnounceTextarea?.value ?? "").trim();
+      let hasItems = false;
+      const items = [];
+
+      for (let idx = 1; idx <= 4; idx++) {
+        const icon = (document.querySelector(`[name="kf_${idx}_icon"]`)?.value ?? "user").trim();
+        const title = (document.querySelector(`[name="kf_${idx}_title"]`)?.value ?? "").trim();
+        const desc = (document.querySelector(`[name="kf_${idx}_desc"]`)?.value ?? "").trim();
+        if (title) hasItems = true;
+        items.push({ icon, title, desc });
+      }
+
+      if (!hasItems) return "";
+
+      const head = subtitle ? `<h2 class="h5 fw-semibold mb-2">${escapeHtml(subtitle)}</h2>` : "";
+      const lead = announce ? `<p class="text-secondary mb-3">${escapeHtml(announce)}</p>` : "";
+      const grid = items
+        .filter((x) => x.title)
+        .map((x) => {
+          const desc = x.desc ? `<p class="text-secondary mb-0">${escapeHtml(x.desc)}</p>` : "";
+          return `<div class="col-md-6">
+  <div class="d-flex align-items-start gap-3">
+    <div class="icon-tile icon-tile-blue flex-shrink-0">${iconSvg(x.icon)}</div>
+    <div>
+      <h5 class="fw-semibold mb-2">${escapeHtml(x.title)}</h5>
+      ${desc}
+    </div>
+  </div>
+</div>`;
+        })
+        .join("\n");
+
+      return `<div class="mb-4">${head}${lead}<div class="row g-4">${grid}</div></div>`;
+    };
+
+    const buildPreviewHtml = () => {
+      const keyFeatures = buildKeyFeaturesPreviewHtml();
+      const main = textarea.value ?? "";
+      if (keyFeatures.trim() && main.trim()) {
+        return `${keyFeatures}\n<hr class="my-4 opacity-75">\n${main}`;
+      }
+      return keyFeatures.trim() ? keyFeatures : main;
+    };
+
+    const updateUI = (val, start, end) => {
+      textarea.value = val;
+      preview.innerHTML = buildPreviewHtml();
+      textarea.focus();
+      textarea.setSelectionRange(start, end);
+      lastSelection = { start, end };
+      saveToHistory();
+    };
+
+    const wrapSelection = (before, after, range) => {
+      const r = (range && (range.start !== 0 || range.end !== 0)) ? range : getLiveRange();
+      const start = r.start;
+      const end = r.end;
+      
+      const value = textarea.value ?? "";
+      const selected = value.slice(start, end);
+      const next = value.slice(0, start) + before + selected + after + value.slice(end);
+      
+      const cursorStart = start + before.length;
+      const cursorEnd = cursorStart + selected.length;
+      updateUI(next, cursorStart, cursorEnd);
+    };
+
+    const insertAtCursor = (text, range) => {
+      const r = (range && (range.start !== 0 || range.end !== 0)) ? range : getLiveRange();
+      const start = r.start;
+      const end = r.end;
+      
+      const value = textarea.value ?? "";
+      const next = value.slice(0, start) + text + value.slice(end);
+      
+      const cursor = start + text.length;
+      updateUI(next, cursor, cursor);
+    };
+
+    const stripTags = (input) => {
+      const normalized = input
+        .replace(/<\s*br\s*\/?>/gi, "\n")
+        .replace(/<\s*hr(\s[^>]*)?>/gi, "\n\n")
+        .replace(/<\/\s*p\s*>/gi, "\n")
+        .replace(/<\/\s*h[1-6]\s*>/gi, "\n")
+        .replace(/<\/\s*li\s*>/gi, "\n")
+        .replace(/<\s*li(\s[^>]*)?>/gi, "• ")
+        .replace(/<\/\s*blockquote\s*>/gi, "\n");
+      const box = document.createElement("div");
+      box.innerHTML = normalized;
+      return (box.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+    };
+
+    const runEditorAction = (action, range) => {
+      if (!action) return;
+      
+      let targetRange = range;
+      if (!targetRange || (targetRange.start === targetRange.end)) {
+        const live = getLiveRange();
+        targetRange = (live.start !== live.end) ? live : lastSelection;
+      }
+
+      if (action === "bold") wrapSelection("<strong>", "</strong>", targetRange);
+      else if (action === "italic") wrapSelection("<em>", "</em>", targetRange);
+      else if (action === "h2") wrapSelection("<h2>", "</h2>", targetRange);
+      else if (action === "h3") wrapSelection("<h3>", "</h3>", targetRange);
+      else if (action === "p") wrapSelection("<p>", "</p>", targetRange);
+      else if (action === "ul") wrapSelection("<ul>\n<li>", "</li>\n</ul>", targetRange);
+      else if (action === "ol") wrapSelection("<ol>\n<li>", "</li>\n</ol>", targetRange);
+      else if (action === "br") insertAtCursor("<br>", targetRange);
+      else if (action === "hr") insertAtCursor("\n<hr class=\"my-4 opacity-75\">\n", targetRange);
+      else if (action === "blockquote") wrapSelection("<blockquote>", "</blockquote>", targetRange);
+      else if (action === "link") {
+        const url = window.prompt("URL для ссылки", "https://");
+        if (url) wrapSelection(`<a href="${url}">`, "</a>", targetRange);
+      }
+      else if (action === "strip") {
+        const { start, end } = targetRange;
+        const value = textarea.value ?? "";
+        
+        if (start === end) {
+          if (window.confirm("Хотите очистить весь текст от тегов?")) {
+            const stripped = stripTags(value);
+            updateUI(stripped, 0, 0);
+          }
+        } else {
+          const selected = value.slice(start, end);
+          const stripped = stripTags(selected);
+          const next = value.slice(0, start) + stripped + value.slice(end);
+          updateUI(next, start, start + stripped.length);
+        }
+      }
+    };
+
+    // Keyboard shortcuts
+    textarea.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "z") {
+        e.preventDefault();
+        undo();
+      }
+    });
+
+    document.querySelectorAll("[data-html-action]").forEach((btn) => {
+      btn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        const range = getLiveRange();
+        runEditorAction(btn.getAttribute("data-html-action"), range);
+      });
+      btn.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        runEditorAction(btn.getAttribute("data-html-action"), lastSelection);
+      });
+    });
+
+    textarea.addEventListener("input", () => {
+      preview.innerHTML = buildPreviewHtml();
+      debouncedSaveToHistory();
+    });
+
+    keyFeaturesInputs.forEach((el) => {
+      el.addEventListener("input", () => {
+        preview.innerHTML = buildPreviewHtml();
+      });
+      el.addEventListener("change", () => {
+        preview.innerHTML = buildPreviewHtml();
+      });
+    });
+    
+    // Save to history on manual input stop or blur
+    textarea.addEventListener("blur", saveToHistory);
+    
+    textarea.addEventListener("select", rememberSelection);
+    textarea.addEventListener("keyup", rememberSelection);
+    textarea.addEventListener("mouseup", rememberSelection);
+    textarea.addEventListener("focus", rememberSelection);
+    
+    document.addEventListener("selectionchange", () => {
+      if (document.activeElement === textarea) {
+        const start = textarea.selectionStart ?? 0;
+        const end = textarea.selectionEnd ?? 0;
+        if (start !== end) {
+          lastSelection = { start, end };
+        }
+      }
+    });
+
+    textarea.addEventListener("dragstart", (e) => {
+      const live = getLiveRange();
+      const start = live.start;
+      const end = live.end;
+      
+      if (start === end) return;
+      
+      const value = textarea.value ?? "";
+      const selected = value.slice(start, end);
+      dragSelection = { start, end, selected };
+      
+      try {
+        e.dataTransfer.setData("application/x-guarde-text-selection", "1");
+        e.dataTransfer.setData("text/plain", selected);
+        e.dataTransfer.effectAllowed = "move";
+        if (e.dataTransfer.setDragImage) {
+          const img = document.createElement("div");
+          img.style.display = "none";
+          e.dataTransfer.setDragImage(img, 0, 0);
+        }
+      } catch (err) {
+        console.error("Drag start error:", err);
+      }
+    });
+
+    textarea.addEventListener("dragover", (e) => {
+      const isOwn = dragSelection || 
+        Array.from(e.dataTransfer?.types || []).includes("application/x-guarde-text-selection");
+      
+      if (isOwn) {
+        e.preventDefault();
+        try {
+          e.dataTransfer.dropEffect = "move";
+        } catch {}
+      }
+    });
+
+    textarea.addEventListener("drop", (e) => {
+      if (!dragSelection) return;
+      const isOwn =
+        Array.from(e.dataTransfer?.types || []).includes("application/x-guarde-text-selection") ||
+        e.dataTransfer?.getData?.("application/x-guarde-text-selection") === "1";
+      if (!isOwn) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const beforeValue = textarea.value ?? "";
+      const { start, end, selected } = dragSelection;
+      dragSelection = null;
+
+      const rawDropPos = textarea.selectionStart ?? 0;
+      if (rawDropPos >= start && rawDropPos <= end) return;
+
+      const withoutSelection = beforeValue.slice(0, start) + beforeValue.slice(end);
+      const removedLen = end - start;
+      const dropPos = rawDropPos > end ? rawDropPos - removedLen : rawDropPos;
+      const next =
+        withoutSelection.slice(0, dropPos) + selected + withoutSelection.slice(dropPos);
+
+      updateUI(next, dropPos, dropPos + selected.length);
+    });
+
+    textarea.addEventListener("dragend", () => {
+      dragSelection = null;
+    });
+  });
+</script>
+{% endblock %}

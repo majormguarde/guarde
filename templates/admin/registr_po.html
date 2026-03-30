@@ -5,71 +5,163 @@
       <span class="registr-po-strip__text" id="registrPoOffcanvasLabel">Государственная регистрация</span>
       <button type="button" class="btn-close btn-close-white" aria-label="Закрыть" data-registr-po-close></button>
     </div>
-    <div class="registr-po-drawer__body p-4 p-lg-5">
-      <div class="row g-4 align-items-center">
-        <div class="col-12 col-lg-4 text-center">
-          {% if registry_image %}
-            <img class="img-fluid rounded-4 shadow-sm registr-po-img" src="{{ url_for('uploads', filename=registry_image.stored_filename) }}" alt="{{ registry_image.title or 'Реестр ПО РФ' }}">
-          {% else %}
-            <div class="registr-po-badge" aria-hidden="true">
-              <div class="registr-po-badge-inner">РФ</div>
-            </div>
-          {% endif %}
-        </div>
-        <div class="col-12 col-lg-8">
-          <div class="registr-po-meta">
-            <span class="registr-po-pill registr-po-pill--blue">Минцифры РФ</span>
-            <span class="registr-po-pill registr-po-pill--cyan">Импортозамещение</span>
-            <span class="registr-po-pill registr-po-pill--navy">КИИ</span>
+    <div class="registr-po-drawer__body p-3 p-lg-4">
+      <div class="registr-po-certificate">
+        <div class="registr-po-certificate__topbar">
+          <div class="registr-po-certificate__label">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path fill="currentColor" d="M12 2 9.6 4.4 6.2 4.9 5.7 8.3 3.3 10.7 4.7 13.8 4.2 17.2 7.6 17.7 10 20.1 13.1 18.7 16.2 20.1 18.6 17.7 22 17.2 21.5 13.8 22.9 10.7 20.5 8.3 20 4.9 16.6 4.4 14.2 2 12 2Zm-1.1 12.2-3-3 1.4-1.4 1.6 1.6 4-4 1.4 1.4-5.4 5.4Z"/>
+            </svg>
+            {{ blocks["registry_badge_label"].body }}
           </div>
-          <h2 class="h3 fw-bold mb-2">{{ blocks["registry_title"].body }}</h2>
-          <p class="text-secondary mb-0">{{ blocks["registry_description"].body }}</p>
+          <div class="registr-po-certificate__check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <path fill="currentColor" d="m9.55 18.2-5.2-5.2 1.4-1.4 3.8 3.8 8.7-8.7 1.4 1.4-10.1 10.1Z"/>
+            </svg>
+          </div>
         </div>
-      </div>
 
-      <div class="registr-po-stats">
-        <div class="registr-po-stat">
-          <div class="registr-po-stat__title">Статус</div>
-          <div class="registr-po-stat__value">В реестре ПО РФ</div>
-          <div class="registr-po-stat__desc">Подтверждена государственная регистрация</div>
-        </div>
-        <div class="registr-po-stat">
-          <div class="registr-po-stat__title">Готовность</div>
-          <div class="registr-po-stat__value">Документы и выписки</div>
-          <div class="registr-po-stat__desc">Справки и реестровые сведения доступны</div>
-        </div>
-        <div class="registr-po-stat">
-          <div class="registr-po-stat__title">Применение</div>
-          <div class="registr-po-stat__value">Госсектор и КИИ</div>
-          <div class="registr-po-stat__desc">Рекомендовано для критической инфраструктуры</div>
-        </div>
-      </div>
+        <div class="registr-po-certificate__body">
+          <div class="registr-po-certificate__seal-wrap">
+            {% if registry_image %}
+              <img class="registr-po-certificate__seal-img" src="{{ url_for('uploads', filename=registry_image.stored_filename) }}" alt="{{ registry_image.title or 'Реестр ПО РФ' }}">
+            {% else %}
+              <div class="registr-po-badge registr-po-badge--emblem" aria-hidden="true">
+                <svg viewBox="0 0 148 148" width="148" height="148">
+                  <defs>
+                    <radialGradient id="registryBadgeFace" cx="50%" cy="40%" r="65%">
+                      <stop offset="0%" stop-color="#ffffff"/>
+                      <stop offset="100%" stop-color="#dde2e8"/>
+                    </radialGradient>
+                    <linearGradient id="registryBadgeRing" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#2c6dcb"/>
+                      <stop offset="55%" stop-color="#083f99"/>
+                      <stop offset="100%" stop-color="#062c78"/>
+                    </linearGradient>
+                    <clipPath id="registryRussiaClip">
+                      <path d="M18 85c5-4 7-9 11-8 4 1 7-3 10-2 4 1 4 5 8 5 4 0 7-6 11-6 3 0 7 1 11-1 3-2 6 1 9 0 3-2 2-6 6-6 4 0 4 4 8 5 4 1 8-3 13-4 4-1 8 3 12 3 4 0 6-5 11-5 4 0 8 5 11 4 4-1 7 2 9 5 2 4 6 6 6 11 0 4-6 4-8 8-2 4-3 10-7 11-5 1-9-1-12 2-4 3-11 3-15 2-5-1-7 3-12 5-6 1-12-1-17-4-5-2-8-1-12-1-4 0-8-4-12-5-5-1-10 1-13-2-4-4-6-9-10-12-4-2-10-1-11-6-1-6 1-11 3-14Z"/>
+                    </clipPath>
+                  </defs>
+                  <circle cx="74" cy="74" r="71" fill="url(#registryBadgeRing)"/>
+                  <circle cx="74" cy="74" r="67" fill="#0d4aab"/>
+                  <circle cx="74" cy="74" r="63.5" fill="#032867"/>
+                  <circle cx="74" cy="74" r="60.5" fill="url(#registryBadgeRing)"/>
+                  <circle cx="74" cy="74" r="56.5" fill="url(#registryBadgeFace)" stroke="#b8c1cc" stroke-width="1.2"/>
+                  <ellipse cx="74" cy="74" rx="39" ry="54" fill="none" stroke="#c1c5ca" stroke-width="0.8"/>
+                  <ellipse cx="74" cy="74" rx="54" ry="39" fill="none" stroke="#c1c5ca" stroke-width="0.8"/>
+                  <path d="M21 74h106M31 50c15-11 29-17 43-19M117 50c-15-11-29-17-43-19M31 98c15 11 29 17 43 19M117 98c-15 11-29 17-43 19M50 23c-11 15-17 29-19 43M98 23c11 15 17 29 19 43M50 125c-11-15-17-29-19-43M98 125c11-15 17-29 19-43" fill="none" stroke="#c1c5ca" stroke-width="0.7" opacity="0.9"/>
+                  <path d="M18 85c5-4 7-9 11-8 4 1 7-3 10-2 4 1 4 5 8 5 4 0 7-6 11-6 3 0 7 1 11-1 3-2 6 1 9 0 3-2 2-6 6-6 4 0 4 4 8 5 4 1 8-3 13-4 4-1 8 3 12 3 4 0 6-5 11-5 4 0 8 5 11 4 4-1 7 2 9 5 2 4 6 6 6 11 0 4-6 4-8 8-2 4-3 10-7 11-5 1-9-1-12 2-4 3-11 3-15 2-5-1-7 3-12 5-6 1-12-1-17-4-5-2-8-1-12-1-4 0-8-4-12-5-5-1-10 1-13-2-4-4-6-9-10-12-4-2-10-1-11-6-1-6 1-11 3-14Z" fill="#ffffff" opacity="0.18"/>
+                  <g clip-path="url(#registryRussiaClip)">
+                    <rect x="12" y="58" width="124" height="17" fill="#ffffff"/>
+                    <rect x="12" y="75" width="124" height="17" fill="#154fb9"/>
+                    <rect x="12" y="92" width="124" height="24" fill="#d62f25"/>
+                  </g>
+                  <path d="M18 85c5-4 7-9 11-8 4 1 7-3 10-2 4 1 4 5 8 5 4 0 7-6 11-6 3 0 7 1 11-1 3-2 6 1 9 0 3-2 2-6 6-6 4 0 4 4 8 5 4 1 8-3 13-4 4-1 8 3 12 3 4 0 6-5 11-5 4 0 8 5 11 4 4-1 7 2 9 5 2 4 6 6 6 11 0 4-6 4-8 8-2 4-3 10-7 11-5 1-9-1-12 2-4 3-11 3-15 2-5-1-7 3-12 5-6 1-12-1-17-4-5-2-8-1-12-1-4 0-8-4-12-5-5-1-10 1-13-2-4-4-6-9-10-12-4-2-10-1-11-6-1-6 1-11 3-14Z" fill="none" stroke="#232323" stroke-width="0.95"/>
+                  <g transform="translate(74 82)">
+                    <path d="M0-16c4 0 8 4 10 10 5-5 11-6 15-2 1 6-2 12-8 14 5 4 7 9 6 14-6 2-12 0-16-4-1 7-4 12-7 15-3-3-6-8-7-15-4 4-10 6-16 4-1-5 1-10 6-14-6-2-9-8-8-14 4-4 10-3 15 2 2-6 6-10 10-10Z" fill="#d8b35a" stroke="#916b18" stroke-width="0.8"/>
+                    <path d="M0-8 6-3 4 8 0 5-4 8-6-3 0-8Z" fill="#c71e1e" stroke="#8f1313" stroke-width="0.7"/>
+                    <path d="M0-17v-5M-10-7l-4-5M10-7l4-5" fill="none" stroke="#b99237" stroke-width="1.3" stroke-linecap="round"/>
+                    <circle cx="0" cy="-22" r="2.5" fill="#d8b35a"/>
+                    <circle cx="-14" cy="-12" r="2.2" fill="#d8b35a"/>
+                    <circle cx="14" cy="-12" r="2.2" fill="#d8b35a"/>
+                  </g>
+                </svg>
+              </div>
+            {% endif %}
+          </div>
 
-      <div class="registr-po-highlight">
-        <div class="registr-po-highlight__title">Что это дает заказчику</div>
-        <div class="registr-po-highlight__grid">
-          <div class="registr-po-highlight__item">Быстрое включение в конкурсную документацию</div>
-          <div class="registr-po-highlight__item">Уверенное импортозамещение и закупки 44/223‑ФЗ</div>
-          <div class="registr-po-highlight__item">Прозрачная подтверждаемая цепочка владения ПО</div>
-          <div class="registr-po-highlight__item">Поддержка требований регуляторов и ИБ</div>
-        </div>
-      </div>
+          <h2 class="registr-po-certificate__title">{{ blocks["registry_title"].body }}</h2>
+          <div class="registr-po-certificate__divider"></div>
 
-      <div class="registr-po-steps">
-        <div class="registr-po-steps__title">Как использовать регистрацию</div>
-        <ol class="registr-po-steps__list">
-          <li>Скачайте выписку и приложите к проектной документации</li>
-          <li>Укажите реестровый статус в закупочной спецификации</li>
-          <li>При аудите предоставьте комплект подтверждающих файлов</li>
-        </ol>
+          <div class="registr-po-certificate__lead">
+            <div class="registr-po-certificate__lead-kicker">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7Zm0 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>
+              </svg>
+              {{ blocks["registry_product_kicker"].body }}
+            </div>
+            <div class="registr-po-certificate__lead-name">{{ blocks["registry_product_name"].body }}</div>
+            <div class="registr-po-certificate__lead-text">{{ blocks["registry_description"].body }}</div>
+          </div>
+
+          <div class="registr-po-certificate__chips">
+            <span class="registr-po-certificate__chip">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M7 7h10v2H7V7Zm0 4h6v2H7v-2Zm-3 8V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Zm14-13V4.5H6V19h14V8h-2a2 2 0 0 1-2-2Z"/>
+              </svg>
+              {{ blocks["registry_chip_1"].body }}
+            </span>
+            <span class="registr-po-certificate__chip">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M3 5h18v14H3V5Zm2 2v10h14V7H5Zm2 2h4v2H7V9Zm0 4h6v2H7v-2Z"/>
+              </svg>
+              {{ blocks["registry_chip_2"].body }}
+            </span>
+            <span class="registr-po-certificate__chip">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M12 2 4 5v6c0 5.2 3.4 10 8 11 4.6-1 8-5.8 8-11V5l-8-3Zm0 2.1 6 2.2V11c0 4.2-2.6 8-6 9-3.4-1-6-4.8-6-9V6.3l6-2.2Zm-1 4.9h2v5h-2V9Zm0 6h2v2h-2v-2Z"/>
+              </svg>
+              {{ blocks["registry_chip_3"].body }}
+            </span>
+          </div>
+
+          <div class="registr-po-certificate__content">
+            <div class="registr-po-stats registr-po-stats--certificate">
+              <div class="registr-po-stat">
+                <div class="registr-po-stat__title">{{ blocks["registry_status_1_title"].body }}</div>
+                <div class="registr-po-stat__value">{{ blocks["registry_status_1_value"].body }}</div>
+                <div class="registr-po-stat__desc">{{ blocks["registry_status_1_desc"].body }}</div>
+              </div>
+              <div class="registr-po-stat">
+                <div class="registr-po-stat__title">{{ blocks["registry_status_2_title"].body }}</div>
+                <div class="registr-po-stat__value">{{ blocks["registry_status_2_value"].body }}</div>
+                <div class="registr-po-stat__desc">{{ blocks["registry_status_2_desc"].body }}</div>
+              </div>
+              <div class="registr-po-stat">
+                <div class="registr-po-stat__title">{{ blocks["registry_status_3_title"].body }}</div>
+                <div class="registr-po-stat__value">{{ blocks["registry_status_3_value"].body }}</div>
+                <div class="registr-po-stat__desc">{{ blocks["registry_status_3_desc"].body }}</div>
+              </div>
+            </div>
+
+            <div class="registr-po-highlight registr-po-highlight--certificate">
+              <div class="registr-po-highlight__title">{{ blocks["registry_benefits_title"].body }}</div>
+              <div class="registr-po-highlight__grid">
+                <div class="registr-po-highlight__item">{{ blocks["registry_benefit_1"].body }}</div>
+                <div class="registr-po-highlight__item">{{ blocks["registry_benefit_2"].body }}</div>
+                <div class="registr-po-highlight__item">{{ blocks["registry_benefit_3"].body }}</div>
+                <div class="registr-po-highlight__item">{{ blocks["registry_benefit_4"].body }}</div>
+              </div>
+            </div>
+
+            <div class="registr-po-steps registr-po-steps--certificate">
+              <div class="registr-po-steps__title">{{ blocks["registry_steps_title"].body }}</div>
+              <ol class="registr-po-steps__list">
+                <li>{{ blocks["registry_step_1"].body }}</li>
+                <li>{{ blocks["registry_step_2"].body }}</li>
+                <li>{{ blocks["registry_step_3"].body }}</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <div class="registr-po-certificate__footer">
+          <div class="registr-po-certificate__footer-brand">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path fill="currentColor" d="M12 2 2 7v2h20V7L12 2Zm-7 9h2v6H5v-6Zm4 0h2v6H9v-6Zm4 0h2v6h-2v-6Zm4 0h2v6h-2v-6ZM3 19h18v2H3v-2Z"/>
+            </svg>
+            <span>{{ blocks["registry_footer_brand"].body }}</span>
+          </div>
+          <div class="registr-po-certificate__footer-note">{{ blocks["registry_footer_note"].body }}</div>
+        </div>
       </div>
 
       {% if registry_docs %}
-        <div class="mt-4">
-          <div class="fw-semibold mb-2">Документы</div>
+        <div class="registr-po-docs">
+          <div class="registr-po-docs__title">{{ blocks["registry_docs_title"].body }}</div>
           <div class="list-group list-group-flush">
             {% for doc in registry_docs %}
-              <a class="list-group-item list-group-item-action docs-item" href="{{ url_for('download_file', asset_id=doc.id) }}">
+              <a class="list-group-item list-group-item-action docs-item registr-po-docs__item" href="{{ url_for('download_file', asset_id=doc.id) }}">
                 <div class="d-flex align-items-center gap-3">
                   <span class="icon-tile icon-tile-green">
                     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
