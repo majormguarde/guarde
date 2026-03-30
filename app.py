@@ -1045,7 +1045,9 @@ def create_app() -> Flask:
         )
 
     def _messages_like(value: str) -> str:
-        return f"%{(value or '').replace('%', '\\%').replace('_', '\\_')}%"
+        v = (value or "")
+        v = v.replace("%", r"\%").replace("_", r"\_")
+        return "%" + v + "%"
 
     def _messages_ci_like(col, value: str):
         return func.lower(col).like(_messages_like(value).lower(), escape="\\")
