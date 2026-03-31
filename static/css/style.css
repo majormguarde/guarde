@@ -560,6 +560,7 @@ main .container {
   color: rgba(var(--corp-navy-rgb), 0.98);
   border: 1px solid rgba(var(--corp-accent-rgb), 0.5);
   box-shadow: 0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-accent-rgb), 0.2);
+  transition: transform 220ms ease, filter 220ms ease, opacity 180ms ease;
   z-index: 1100;
 }
 
@@ -573,7 +574,7 @@ main .container {
 
 .sticky-registry-btn:hover {
   filter: brightness(1.05);
-  transform: translateY(-50%) translateX(2px);
+  transform: translateY(-50%) translateX(0);
 }
 
 .sticky-registry-btn:active {
@@ -608,6 +609,7 @@ body.support-drawer-open .sticky-calc-btn {
   color: #ffffff;
   border: 1px solid rgba(var(--corp-primary-rgb), 0.5);
   box-shadow: 0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-primary-rgb), 0.2);
+  transition: transform 220ms ease, filter 220ms ease, opacity 180ms ease;
   z-index: 1099;
 }
 
@@ -621,7 +623,7 @@ body.support-drawer-open .sticky-calc-btn {
 
 .sticky-calc-btn:hover {
   filter: brightness(1.05);
-  transform: translateY(-50%) translateX(2px);
+  transform: translateY(-50%) translateX(0);
 }
 
 .sticky-calc-btn:active {
@@ -630,6 +632,27 @@ body.support-drawer-open .sticky-calc-btn {
 
 .sticky-calc-btn svg {
   flex: 0 0 auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sticky-registry-btn,
+  .sticky-calc-btn {
+    transform: translateY(-50%) translateX(calc(-100% + 56px));
+  }
+
+  .sticky-registry-btn:hover,
+  .sticky-registry-btn:focus-visible,
+  .sticky-calc-btn:hover,
+  .sticky-calc-btn:focus-visible {
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticky-registry-btn,
+  .sticky-calc-btn {
+    transition: none;
+  }
 }
 
 .registr-po-offcanvas {
