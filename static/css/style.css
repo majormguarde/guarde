@@ -549,17 +549,17 @@ main .container {
 .sticky-registry-btn {
   position: fixed;
   top: 50%;
-  left: 0;
+  right: 0;
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.75rem 1rem 0.75rem 1.1rem;
-  border-radius: 0 999px 999px 0;
+  padding: 0.75rem 1.1rem 0.75rem 1rem;
+  border-radius: 999px 0 0 999px;
   background: rgba(var(--corp-accent-rgb), 0.92);
   color: rgba(var(--corp-navy-rgb), 0.98);
   border: 1px solid rgba(var(--corp-accent-rgb), 0.5);
-  box-shadow: 0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-accent-rgb), 0.2);
+  box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-accent-rgb), 0.2);
   transition: transform 220ms ease, filter 220ms ease, opacity 180ms ease;
   z-index: 1100;
 }
@@ -598,17 +598,17 @@ body.support-drawer-open .sticky-calc-btn {
 .sticky-calc-btn {
   position: fixed;
   top: calc(50% + 72px);
-  left: 0;
+  right: 0;
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.75rem 1rem 0.75rem 1.1rem;
-  border-radius: 0 999px 999px 0;
+  padding: 0.75rem 1.1rem 0.75rem 1rem;
+  border-radius: 999px 0 0 999px;
   background: rgba(var(--corp-primary-rgb), 0.92);
   color: #ffffff;
   border: 1px solid rgba(var(--corp-primary-rgb), 0.5);
-  box-shadow: 0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-primary-rgb), 0.2);
+  box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-primary-rgb), 0.2);
   transition: transform 220ms ease, filter 220ms ease, opacity 180ms ease;
   z-index: 1099;
 }
@@ -637,7 +637,7 @@ body.support-drawer-open .sticky-calc-btn {
 @media (hover: hover) and (pointer: fine) {
   .sticky-registry-btn,
   .sticky-calc-btn {
-    transform: translateY(-50%) translateX(calc(-100% + 56px));
+    transform: translateY(-50%) translateX(calc(100% - 56px));
   }
 
   .sticky-registry-btn:hover,
