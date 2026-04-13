@@ -38,6 +38,7 @@ from sqlalchemy import create_engine, delete, func, select, text, update
 from sqlalchemy.sql import and_, or_
 from sqlalchemy.orm import Session, sessionmaker
 
+from db_config import database_url, is_sqlite_url
 from models import (
     AdminUser,
     Asset,
@@ -523,7 +524,14 @@ def create_app() -> Flask:
     else:
         app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024
 
-    engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
+    db_url = database_url(DB_PATH)
+    engine_kwargs: dict[str, object] = {"future": True}
+    if is_sqlite_url(db_url):
+        engine_kwargs["connect_args"] = {"timeout": 30}
+    else:
+        engine_kwargs["pool_pre_ping"] = True
+        engine_kwargs["pool_recycle"] = 3600
+    engine = create_engine(db_url, **engine_kwargs)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
     if app.config["STORAGE_BACKEND"] == "local":
@@ -646,176 +654,178 @@ def create_app() -> Flask:
         )
         return redirect(url)
 
-    support_fts_available = True
-    with engine.begin() as conn:
-        columns = {r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_messages)"))}
-        if "company" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE support_messages "
-                    "ADD COLUMN company VARCHAR(200) NOT NULL DEFAULT ''"
+    support_fts_available = False
+    if is_sqlite_url(db_url):
+        support_fts_available = True
+        with engine.begin() as conn:
+            columns = {r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_messages)"))}
+            if "company" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_messages "
+                        "ADD COLUMN company VARCHAR(200) NOT NULL DEFAULT ''"
+                    )
                 )
-            )
-        if "telegram" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE support_messages "
-                    "ADD COLUMN telegram TEXT NOT NULL DEFAULT ''"
+            if "telegram" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_messages "
+                        "ADD COLUMN telegram TEXT NOT NULL DEFAULT ''"
+                    )
                 )
-            )
-        if "whatsapp" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE support_messages "
-                    "ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''"
+            if "whatsapp" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_messages "
+                        "ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''"
+                    )
                 )
-            )
-        if "complaints" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE support_messages "
-                    "ADD COLUMN complaints TEXT NOT NULL DEFAULT ''"
+            if "complaints" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_messages "
+                        "ADD COLUMN complaints TEXT NOT NULL DEFAULT ''"
+                    )
                 )
-            )
-        if "anydesk_id" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE support_messages "
-                    "ADD COLUMN anydesk_id VARCHAR(64) NOT NULL DEFAULT ''"
+            if "anydesk_id" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_messages "
+                        "ADD COLUMN anydesk_id VARCHAR(64) NOT NULL DEFAULT ''"
+                    )
                 )
-            )
-        if "staff_notes" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE support_messages "
-                    "ADD COLUMN staff_notes TEXT NOT NULL DEFAULT ''"
+            if "staff_notes" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_messages "
+                        "ADD COLUMN staff_notes TEXT NOT NULL DEFAULT ''"
+                    )
                 )
-            )
-        if "user_id" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE support_messages "
-                    "ADD COLUMN user_id INTEGER NULL"
+            if "user_id" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE support_messages "
+                        "ADD COLUMN user_id INTEGER NULL"
+                    )
                 )
-            )
 
-        admin_cols = {r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(admin_users)"))}
-        if "first_name" not in admin_cols:
-            conn.execute(text("ALTER TABLE admin_users ADD COLUMN first_name VARCHAR(120) NOT NULL DEFAULT ''"))
-        if "last_name" not in admin_cols:
-            conn.execute(text("ALTER TABLE admin_users ADD COLUMN last_name VARCHAR(120) NOT NULL DEFAULT ''"))
-        if "phone" not in admin_cols:
-            conn.execute(text("ALTER TABLE admin_users ADD COLUMN phone TEXT NOT NULL DEFAULT ''"))
-        if "email" not in admin_cols:
-            conn.execute(text("ALTER TABLE admin_users ADD COLUMN email TEXT NOT NULL DEFAULT ''"))
-        if "telegram" not in admin_cols:
-            conn.execute(text("ALTER TABLE admin_users ADD COLUMN telegram TEXT NOT NULL DEFAULT ''"))
-        if "whatsapp" not in admin_cols:
-            conn.execute(text("ALTER TABLE admin_users ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''"))
+            admin_cols = {r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(admin_users)"))}
+            if "first_name" not in admin_cols:
+                conn.execute(text("ALTER TABLE admin_users ADD COLUMN first_name VARCHAR(120) NOT NULL DEFAULT ''"))
+            if "last_name" not in admin_cols:
+                conn.execute(text("ALTER TABLE admin_users ADD COLUMN last_name VARCHAR(120) NOT NULL DEFAULT ''"))
+            if "phone" not in admin_cols:
+                conn.execute(text("ALTER TABLE admin_users ADD COLUMN phone TEXT NOT NULL DEFAULT ''"))
+            if "email" not in admin_cols:
+                conn.execute(text("ALTER TABLE admin_users ADD COLUMN email TEXT NOT NULL DEFAULT ''"))
+            if "telegram" not in admin_cols:
+                conn.execute(text("ALTER TABLE admin_users ADD COLUMN telegram TEXT NOT NULL DEFAULT ''"))
+            if "whatsapp" not in admin_cols:
+                conn.execute(text("ALTER TABLE admin_users ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''"))
 
-        attachment_cols = {
-            r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_attachments)"))
-        }
-        if attachment_cols:
-            if "direction" not in attachment_cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE support_attachments "
-                        "ADD COLUMN direction VARCHAR(16) NOT NULL DEFAULT 'from_client'"
-                    )
-                )
-            if "note" not in attachment_cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE support_attachments "
-                        "ADD COLUMN note TEXT NOT NULL DEFAULT ''"
-                    )
-                )
-            if "size_bytes" not in attachment_cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE support_attachments "
-                        "ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0"
-                    )
-                )
-        try:
-            expected_fts_cols = {
-                "name",
-                "email",
-                "company",
-                "phone",
-                "telegram",
-                "whatsapp",
-                "anydesk_id",
-                "subject",
-                "message",
-                "complaints",
-                "staff_notes",
+            attachment_cols = {
+                r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_attachments)"))
             }
-            existing_fts_cols = {
-                r._mapping["name"]
-                for r in conn.execute(text("PRAGMA table_info(support_messages_fts)"))
-            }
-            if existing_fts_cols and not expected_fts_cols.issubset(existing_fts_cols):
-                conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_ai"))
-                conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_ad"))
-                conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_au"))
-                conn.execute(text("DROP TABLE IF EXISTS support_messages_fts"))
-            conn.execute(
-                text(
-                    "CREATE VIRTUAL TABLE IF NOT EXISTS support_messages_fts USING fts5("
-                    "name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes, "
-                    "tokenize='unicode61'"
-                    ")"
+            if attachment_cols:
+                if "direction" not in attachment_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE support_attachments "
+                            "ADD COLUMN direction VARCHAR(16) NOT NULL DEFAULT 'from_client'"
+                        )
+                    )
+                if "note" not in attachment_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE support_attachments "
+                            "ADD COLUMN note TEXT NOT NULL DEFAULT ''"
+                        )
+                    )
+                if "size_bytes" not in attachment_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE support_attachments "
+                            "ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0"
+                        )
+                    )
+            try:
+                expected_fts_cols = {
+                    "name",
+                    "email",
+                    "company",
+                    "phone",
+                    "telegram",
+                    "whatsapp",
+                    "anydesk_id",
+                    "subject",
+                    "message",
+                    "complaints",
+                    "staff_notes",
+                }
+                existing_fts_cols = {
+                    r._mapping["name"]
+                    for r in conn.execute(text("PRAGMA table_info(support_messages_fts)"))
+                }
+                if existing_fts_cols and not expected_fts_cols.issubset(existing_fts_cols):
+                    conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_ai"))
+                    conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_ad"))
+                    conn.execute(text("DROP TRIGGER IF EXISTS support_messages_fts_au"))
+                    conn.execute(text("DROP TABLE IF EXISTS support_messages_fts"))
+                conn.execute(
+                    text(
+                        "CREATE VIRTUAL TABLE IF NOT EXISTS support_messages_fts USING fts5("
+                        "name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes, "
+                        "tokenize='unicode61'"
+                        ")"
+                    )
                 )
-            )
-            conn.execute(
-                text(
-                    "CREATE TRIGGER IF NOT EXISTS support_messages_fts_ai "
-                    "AFTER INSERT ON support_messages BEGIN "
-                    "INSERT INTO support_messages_fts(rowid, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes) "
-                    "VALUES (new.id, new.name, new.email, new.company, new.phone, new.telegram, new.whatsapp, new.anydesk_id, new.subject, new.message, new.complaints, new.staff_notes); "
-                    "END;"
+                conn.execute(
+                    text(
+                        "CREATE TRIGGER IF NOT EXISTS support_messages_fts_ai "
+                        "AFTER INSERT ON support_messages BEGIN "
+                        "INSERT INTO support_messages_fts(rowid, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes) "
+                        "VALUES (new.id, new.name, new.email, new.company, new.phone, new.telegram, new.whatsapp, new.anydesk_id, new.subject, new.message, new.complaints, new.staff_notes); "
+                        "END;"
+                    )
                 )
-            )
-            conn.execute(
-                text(
-                    "CREATE TRIGGER IF NOT EXISTS support_messages_fts_ad "
-                    "AFTER DELETE ON support_messages BEGIN "
-                    "DELETE FROM support_messages_fts WHERE rowid = old.id; "
-                    "END;"
+                conn.execute(
+                    text(
+                        "CREATE TRIGGER IF NOT EXISTS support_messages_fts_ad "
+                        "AFTER DELETE ON support_messages BEGIN "
+                        "DELETE FROM support_messages_fts WHERE rowid = old.id; "
+                        "END;"
+                    )
                 )
-            )
-            conn.execute(
-                text(
-                    "CREATE TRIGGER IF NOT EXISTS support_messages_fts_au "
-                    "AFTER UPDATE ON support_messages BEGIN "
-                    "UPDATE support_messages_fts SET "
-                    "name = new.name, "
-                    "email = new.email, "
-                    "company = new.company, "
-                    "phone = new.phone, "
-                    "telegram = new.telegram, "
-                    "whatsapp = new.whatsapp, "
-                    "anydesk_id = new.anydesk_id, "
-                    "subject = new.subject, "
-                    "message = new.message, "
-                    "complaints = new.complaints, "
-                    "staff_notes = new.staff_notes "
-                    "WHERE rowid = new.id; "
-                    "END;"
+                conn.execute(
+                    text(
+                        "CREATE TRIGGER IF NOT EXISTS support_messages_fts_au "
+                        "AFTER UPDATE ON support_messages BEGIN "
+                        "UPDATE support_messages_fts SET "
+                        "name = new.name, "
+                        "email = new.email, "
+                        "company = new.company, "
+                        "phone = new.phone, "
+                        "telegram = new.telegram, "
+                        "whatsapp = new.whatsapp, "
+                        "anydesk_id = new.anydesk_id, "
+                        "subject = new.subject, "
+                        "message = new.message, "
+                        "complaints = new.complaints, "
+                        "staff_notes = new.staff_notes "
+                        "WHERE rowid = new.id; "
+                        "END;"
+                    )
                 )
-            )
-            conn.execute(
-                text(
-                    "INSERT INTO support_messages_fts(rowid, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes) "
-                    "SELECT id, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes "
-                    "FROM support_messages "
-                    "WHERE id NOT IN (SELECT rowid FROM support_messages_fts)"
+                conn.execute(
+                    text(
+                        "INSERT INTO support_messages_fts(rowid, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes) "
+                        "SELECT id, name, email, company, phone, telegram, whatsapp, anydesk_id, subject, message, complaints, staff_notes "
+                        "FROM support_messages "
+                        "WHERE id NOT IN (SELECT rowid FROM support_messages_fts)"
+                    )
                 )
-            )
-        except Exception:
-            support_fts_available = False
+            except Exception:
+                support_fts_available = False
 
     app.config["SUPPORT_FTS_AVAILABLE"] = support_fts_available
 

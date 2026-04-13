@@ -1,6 +1,6 @@
 # Guarde
 
-Веб‑приложение на Flask для сайта и обработки заявок техподдержки. Хранение данных — SQLite (`site.db`), загружаемые файлы — `static/uploads/`.
+Веб‑приложение на Flask для сайта и обработки заявок техподдержки. По умолчанию хранение данных — SQLite (`site.db`), но можно переключить на MySQL через конфигурацию.
 
 ## Локальный запуск (для проверки)
 
@@ -16,6 +16,41 @@ python app.py
 ```
 
 Открыть: `http://127.0.0.1:5000/`
+
+## Настройка БД (SQLite/MySQL)
+
+По умолчанию используется SQLite (файл `site.db` в корне проекта).
+
+Варианты конфигурации:
+
+1) Через `DATABASE_URL` (приоритетно):
+
+```bash
+# SQLite
+DATABASE_URL=sqlite:///./site.db
+
+# MySQL (пример)
+DATABASE_URL=mysql+pymysql://user:password@127.0.0.1:3306/guarde?charset=utf8mb4
+```
+
+2) Через `DB_BACKEND` и параметры подключения:
+
+```bash
+DB_BACKEND=mysql
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_DATABASE=guarde
+MYSQL_USER=guarde
+MYSQL_PASSWORD=secret
+
+# необязательно
+MYSQL_DRIVER=pymysql
+MYSQL_CHARSET=utf8mb4
+```
+
+Примечания:
+- Для MySQL нужен драйвер. В `requirements.txt` добавлен `PyMySQL` (по умолчанию используется `mysql+pymysql`).
+- SQLite‑специфичные оптимизации (FTS5 для поиска в тикетах) доступны только при SQLite.
 
 ## Развёртывание на SpaceWeb
 
