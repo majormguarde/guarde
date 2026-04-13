@@ -23,7 +23,7 @@ def main() -> int:
     db_path: Path | None = None
 
     sys.path.insert(0, str(project_dir))
-    from db_config import database_url, is_sqlite_url
+    from db_config import database_engine_kwargs, database_url, is_sqlite_url
     from models import AdminUser
 
     db_url = (args.db_url or "").strip()
@@ -36,16 +36,11 @@ def main() -> int:
             if is_sqlite_url(db_url):
                 db_path = default_db_path
 
-    engine_kwargs: dict[str, object] = {"future": True}
     if is_sqlite_url(db_url):
-        engine_kwargs["connect_args"] = {"timeout": 30}
         if db_path is not None and not db_path.exists():
             raise SystemExit(f"DB not found: {db_path}")
-    else:
-        engine_kwargs["pool_pre_ping"] = True
-        engine_kwargs["pool_recycle"] = 3600
 
-    engine = create_engine(db_url, **engine_kwargs)
+    engine = create_engine(db_url, **database_engine_kwargs(db_url))
 
     new_username = (args.username or "").strip()
     new_password = args.password or ""

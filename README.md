@@ -31,14 +31,14 @@ python app.py
 # SQLite
 DATABASE_URL=sqlite:///./site.db
 
-# MySQL (пример)
+# MySQL 8 (пример)
 DATABASE_URL=mysql+pymysql://user:password@127.0.0.1:3306/guarde?charset=utf8mb4
 ```
 
 2) Через `DB_BACKEND` и параметры подключения:
 
 ```bash
-DB_BACKEND=mysql
+DB_BACKEND=mysql8
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
 MYSQL_DATABASE=guarde
@@ -48,9 +48,12 @@ MYSQL_PASSWORD=secret
 # необязательно
 MYSQL_DRIVER=pymysql
 MYSQL_CHARSET=utf8mb4
+MYSQL_COLLATION=utf8mb4_0900_ai_ci
 ```
 
 Примечания:
+- `DB_BACKEND` может быть `mysql`, `mysql8` или `mariadb`.
+- Для MySQL 8 по умолчанию используется `utf8mb4` и collation `utf8mb4_0900_ai_ci`.
 - Для MySQL нужен драйвер. В `requirements.txt` добавлен `PyMySQL` (по умолчанию используется `mysql+pymysql`).
 - SQLite‑специфичные оптимизации (FTS5 для поиска в тикетах) доступны только при SQLite.
 

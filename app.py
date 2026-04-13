@@ -39,7 +39,7 @@ from sqlalchemy import create_engine, delete, func, select, text, update
 from sqlalchemy.sql import and_, or_
 from sqlalchemy.orm import Session, sessionmaker
 
-from db_config import database_url, is_sqlite_url
+from db_config import database_engine_kwargs, database_url, is_sqlite_url
 from models import (
     AdminUser,
     Asset,
@@ -539,13 +539,7 @@ def create_app() -> Flask:
         app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024
 
     db_url = database_url(DB_PATH)
-    engine_kwargs: dict[str, object] = {"future": True}
-    if is_sqlite_url(db_url):
-        engine_kwargs["connect_args"] = {"timeout": 30}
-    else:
-        engine_kwargs["pool_pre_ping"] = True
-        engine_kwargs["pool_recycle"] = 3600
-    engine = create_engine(db_url, **engine_kwargs)
+    engine = create_engine(db_url, **database_engine_kwargs(db_url))
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
     if app.config["STORAGE_BACKEND"] == "local":

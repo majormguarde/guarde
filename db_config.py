@@ -40,6 +40,33 @@ def is_sqlite_url(url: str) -> bool:
     return (url or "").strip().lower().startswith("sqlite:")
 
 
+def is_mysql_url(url: str) -> bool:
+    url_l = (url or "").strip().lower()
+    return url_l.startswith("mysql:") or url_l.startswith("mysql+")
+
+
+def database_engine_kwargs(db_url: str) -> dict[str, object]:
+    kwargs: dict[str, object] = {"future": True}
+    if is_sqlite_url(db_url):
+        kwargs["connect_args"] = {"timeout": 30}
+        return kwargs
+
+    if is_mysql_url(db_url):
+        charset = (os.environ.get("MYSQL_CHARSET") or "utf8mb4").strip() or "utf8mb4"
+        collation = (os.environ.get("MYSQL_COLLATION") or "utf8mb4_0900_ai_ci").strip()
+        init_parts = [f"SET NAMES {charset}"]
+        if collation:
+            init_parts.append(f"COLLATE {collation}")
+        kwargs["connect_args"] = {"init_command": " ".join(init_parts)}
+        kwargs["pool_pre_ping"] = True
+        kwargs["pool_recycle"] = 3600
+        return kwargs
+
+    kwargs["pool_pre_ping"] = True
+    kwargs["pool_recycle"] = 3600
+    return kwargs
+
+
 def database_url(default_sqlite_path: Path) -> str:
     explicit = (os.environ.get("DATABASE_URL") or "").strip()
     if explicit:
@@ -49,7 +76,7 @@ def database_url(default_sqlite_path: Path) -> str:
     if backend in {"sqlite", "sqlite3"}:
         return f"sqlite:///{default_sqlite_path}"
 
-    if backend in {"mysql", "mariadb"}:
+    if backend in {"mysql", "mysql8", "mysql-8", "mysql_8", "mariadb"}:
         host = (os.environ.get("MYSQL_HOST") or "").strip()
         if not host:
             raise RuntimeError("MYSQL_HOST is required when DB_BACKEND=mysql")
@@ -68,6 +95,7 @@ def database_url(default_sqlite_path: Path) -> str:
         dialect = driver if driver.startswith("mysql") else f"mysql+{driver}"
 
         charset = (os.environ.get("MYSQL_CHARSET") or "utf8mb4").strip() or "utf8mb4"
+        query = {"charset": charset}
 
         return str(
             URL.create(
@@ -77,7 +105,7 @@ def database_url(default_sqlite_path: Path) -> str:
                 host=host,
                 port=port,
                 database=database,
-                query={"charset": charset},
+                query=query,
             )
         )
 
