@@ -13,3 +13,4 @@ instance/
 .idea/
 .vscode/
 static/uploads/
+.env

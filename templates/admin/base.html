@@ -69,6 +69,7 @@
               <a class="nav-link py-1 {% if request.path.startswith('/admin/settings') and request.args.get('tab') == 'requisites' %}active{% endif %}" href="{{ url_for('admin_settings', tab='requisites') }}#requisites">Реквизиты</a>
               <a class="nav-link py-1 {% if request.path.startswith('/admin/settings') and request.args.get('tab') == 'contact' %}active{% endif %}" href="{{ url_for('admin_settings', tab='contact') }}#contact">Связь</a>
               <a class="nav-link py-1 {% if request.path.startswith('/admin/settings') and request.args.get('tab') == 'options' %}active{% endif %}" href="{{ url_for('admin_settings', tab='options') }}#options">Опции</a>
+              <a class="nav-link py-1 {% if request.path.startswith('/admin/settings') and request.args.get('tab') == 'seo' %}active{% endif %}" href="{{ url_for('admin_settings', tab='seo') }}#seo">SEO</a>
             </div>
           </div>
 

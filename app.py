@@ -21,6 +21,7 @@ from typing import Callable
 
 from flask import (
     Flask,
+    Response,
     abort,
     flash,
     g,
@@ -452,6 +453,19 @@ DEFAULT_CONTENT: dict[str, dict[str, str]] = {
     "requisites_ks": {"title": "Реквизиты — корреспондентский счёт", "body": ""},
     "option_turnstile_enabled": {"title": "Опции — Turnstile включён (0/1)", "body": "1"},
     "option_submit_min_interval_seconds": {"title": "Опции — антидубль форм (сек)", "body": "8"},
+    "seo_description": {
+        "title": "SEO — meta description",
+        "body": "Российская сетевая СКУД для объектов любой сложности: контроль доступа, учет рабочего времени, интеграции и надежная защита периметра.",
+    },
+    "seo_keywords": {
+        "title": "SEO — meta keywords",
+        "body": "СКУД, контроль доступа, система доступа, учет рабочего времени, защита периметра, безопасность, интеграции",
+    },
+    "seo_robots": {"title": "SEO — meta robots", "body": "index,follow"},
+    "seo_og_image_slot": {"title": "SEO — OG image slot", "body": "hero_image"},
+    "seo_twitter_card": {"title": "SEO — Twitter card", "body": "summary_large_image"},
+    "seo_google_site_verification": {"title": "SEO — Google site verification", "body": ""},
+    "seo_yandex_verification": {"title": "SEO — Yandex verification", "body": ""},
 }
 
 REGISTRY_EDITOR_SECTIONS: tuple[dict[str, object], ...] = (
@@ -1003,10 +1017,15 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_site_assets():
+        blocks = get_blocks()
+        og_slot = (getattr(blocks.get("seo_og_image_slot"), "body", "") or "").strip() or "hero_image"
+        og_asset = get_asset_by_slot(og_slot)
         return {
             "logo_asset": get_asset_by_slot("site_logo"),
             "favicon_asset": get_asset_by_slot("site_favicon"),
             "client_user": current_client(),
+            "blocks": blocks,
+            "seo_og_image_asset": og_asset,
         }
 
     def allowed_file(filename: str, exts: set[str]) -> bool:
@@ -1551,6 +1570,60 @@ def create_app() -> Flask:
     def feature_deployment():
         return _feature_page("fast-deployment", "deployment_image")
 
+    @app.get("/robots.txt")
+    def robots_txt():
+        root = request.url_root.rstrip("/")
+        content = "\n".join(
+            [
+                "User-agent: *",
+                "Allow: /",
+                "Disallow: /admin",
+                "Disallow: /admin/",
+                "Disallow: /setup",
+                f"Sitemap: {root}/sitemap.xml",
+                "",
+            ]
+        )
+        return Response(content, mimetype="text/plain; charset=utf-8")
+
+    @app.get("/sitemap.xml")
+    def sitemap_xml():
+        urls = [
+            url_for("index", _external=True),
+            url_for("downloads", _external=True),
+            url_for("feature_safety", _external=True),
+            url_for("feature_scalable", _external=True),
+            url_for("feature_monitoring", _external=True),
+            url_for("feature_integration", _external=True),
+            url_for("feature_reliability", _external=True),
+            url_for("feature_deployment", _external=True),
+        ]
+        today = datetime.utcnow().date().isoformat()
+        xml_items = []
+        for u in urls:
+            xml_items.append(
+                "\n".join(
+                    [
+                        "  <url>",
+                        f"    <loc>{html.escape(u)}</loc>",
+                        f"    <lastmod>{today}</lastmod>",
+                        "    <changefreq>weekly</changefreq>",
+                        "    <priority>0.8</priority>",
+                        "  </url>",
+                    ]
+                )
+            )
+        xml = "\n".join(
+            [
+                '<?xml version="1.0" encoding="UTF-8"?>',
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+                "\n".join(xml_items),
+                "</urlset>",
+                "",
+            ]
+        )
+        return Response(xml, mimetype="application/xml; charset=utf-8")
+
     @app.post("/support")
     def support_submit():
         user = current_client()
@@ -1979,6 +2052,13 @@ def create_app() -> Flask:
             "requisites_ks",
             "option_turnstile_enabled",
             "option_submit_min_interval_seconds",
+            "seo_description",
+            "seo_keywords",
+            "seo_robots",
+            "seo_og_image_slot",
+            "seo_twitter_card",
+            "seo_google_site_verification",
+            "seo_yandex_verification",
         }
         blocks = (
             db()
@@ -3362,7 +3442,7 @@ def create_app() -> Flask:
     def admin_settings():
         blocks = get_blocks()
         tab = (request.args.get("tab") or "branding").strip().lower()
-        if tab not in {"branding", "password", "requisites", "contact", "options"}:
+        if tab not in {"branding", "password", "requisites", "contact", "options", "seo"}:
             tab = "branding"
         submit_min_interval_source = ""
         if (os.environ.get("GUARDE_SUBMIT_MIN_INTERVAL_SECONDS") or "").strip():
@@ -3527,6 +3607,28 @@ def create_app() -> Flask:
             turnstile_block.body = "1" if request.form.get("option_turnstile_enabled") else "0"
         flash("Опции обновлены.", "success")
         return redirect(next_url or url_for("admin_settings", tab="options") + "#options")
+
+    @app.post("/admin/settings/seo")
+    @login_required
+    def admin_settings_seo():
+        ensure_defaults()
+        next_url = safe_next_url(request.form.get("next"))
+        keys = [
+            "seo_description",
+            "seo_keywords",
+            "seo_robots",
+            "seo_og_image_slot",
+            "seo_twitter_card",
+            "seo_google_site_verification",
+            "seo_yandex_verification",
+        ]
+        for key in keys:
+            block = db().get(ContentBlock, key)
+            if block is None:
+                continue
+            block.body = (request.form.get(key) or "").strip()
+        flash("SEO обновлено.", "success")
+        return redirect(next_url or url_for("admin_settings", tab="seo") + "#seo")
 
     @app.get("/admin/logs/users")
     @login_required

@@ -6,6 +6,36 @@ from pathlib import Path
 from sqlalchemy.engine import URL
 
 
+def _strip_quotes(value: str) -> str:
+    v = (value or "").strip()
+    if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
+        return v[1:-1]
+    return v
+
+
+def _load_env_file(path: Path) -> None:
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    for line in raw.splitlines():
+        s = (line or "").strip()
+        if not s or s.startswith("#"):
+            continue
+        if "=" not in s:
+            continue
+        key, value = s.split("=", 1)
+        key = (key or "").strip()
+        if not key:
+            continue
+        if key in os.environ:
+            continue
+        os.environ[key] = _strip_quotes(value)
+
+
+_load_env_file(Path(__file__).resolve().parent / ".env")
+
+
 def is_sqlite_url(url: str) -> bool:
     return (url or "").strip().lower().startswith("sqlite:")
 
@@ -52,4 +82,3 @@ def database_url(default_sqlite_path: Path) -> str:
         )
 
     raise RuntimeError(f"Unsupported DB_BACKEND: {backend}")
-

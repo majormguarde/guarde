@@ -4,6 +4,50 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{{ blocks.get("brand_full").body if blocks else "СКУД «Стражъ | Авангардъ»" }}{% endblock %}</title>
+    {% set canonical_url = request.url_root.rstrip("/") ~ request.path %}
+    <link rel="canonical" href="{{ canonical_url }}">
+    {% if blocks and blocks.get("seo_robots") and blocks["seo_robots"].body.strip() %}
+      <meta name="robots" content="{{ blocks['seo_robots'].body.strip() }}">
+    {% else %}
+      <meta name="robots" content="index,follow">
+    {% endif %}
+    {% if blocks and blocks.get("seo_description") and blocks["seo_description"].body.strip() %}
+      <meta name="description" content="{{ blocks['seo_description'].body.strip() }}">
+    {% endif %}
+    {% if blocks and blocks.get("seo_keywords") and blocks["seo_keywords"].body.strip() %}
+      <meta name="keywords" content="{{ blocks['seo_keywords'].body.strip() }}">
+    {% endif %}
+    {% if blocks and blocks.get("seo_google_site_verification") and blocks["seo_google_site_verification"].body.strip() %}
+      <meta name="google-site-verification" content="{{ blocks['seo_google_site_verification'].body.strip() }}">
+    {% endif %}
+    {% if blocks and blocks.get("seo_yandex_verification") and blocks["seo_yandex_verification"].body.strip() %}
+      <meta name="yandex-verification" content="{{ blocks['seo_yandex_verification'].body.strip() }}">
+    {% endif %}
+
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ canonical_url }}">
+    <meta property="og:site_name" content="{{ blocks.get('brand_full').body if blocks and blocks.get('brand_full') else '' }}">
+    <meta property="og:title" content="{{ self.title()|striptags|trim }}">
+    {% if blocks and blocks.get("seo_description") and blocks["seo_description"].body.strip() %}
+      <meta property="og:description" content="{{ blocks['seo_description'].body.strip() }}">
+    {% endif %}
+    {% if seo_og_image_asset %}
+      <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ url_for('uploads', filename=seo_og_image_asset.stored_filename) }}">
+    {% endif %}
+
+    <meta name="twitter:title" content="{{ self.title()|striptags|trim }}">
+    {% if blocks and blocks.get("seo_description") and blocks["seo_description"].body.strip() %}
+      <meta name="twitter:description" content="{{ blocks['seo_description'].body.strip() }}">
+    {% endif %}
+    {% if blocks and blocks.get("seo_twitter_card") and blocks["seo_twitter_card"].body.strip() %}
+      <meta name="twitter:card" content="{{ blocks['seo_twitter_card'].body.strip() }}">
+    {% else %}
+      <meta name="twitter:card" content="summary_large_image">
+    {% endif %}
+    {% if seo_og_image_asset %}
+      <meta name="twitter:image" content="{{ request.url_root.rstrip('/') ~ url_for('uploads', filename=seo_og_image_asset.stored_filename) }}">
+    {% endif %}
     {% if favicon_asset %}
       <link rel="icon" href="{{ url_for('uploads', filename=favicon_asset.stored_filename) }}">
     {% endif %}

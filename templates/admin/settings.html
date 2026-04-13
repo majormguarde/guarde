@@ -11,6 +11,7 @@
   {% if tab == "requisites" %}Реквизиты{% endif %}
   {% if tab == "contact" %}Связь{% endif %}
   {% if tab == "options" %}Опции{% endif %}
+  {% if tab == "seo" %}SEO{% endif %}
 </h1>
 
 {% if tab == "branding" %}
@@ -272,6 +273,64 @@
           <li>Документы категории price отображаются в блоке «Прайс».</li>
           <li>Документы категории registry отображаются в блоке «Реестр ПО РФ».</li>
         </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif tab == "seo" %}
+<div class="row g-3">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3" id="seo">SEO</h2>
+        <form method="post" action="{{ url_for('admin_settings_seo') }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <div class="mb-3">
+            <label class="form-label">Meta description</label>
+            <textarea class="form-control" name="seo_description" rows="3">{{ blocks.get('seo_description').body if blocks.get('seo_description') else '' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Meta keywords</label>
+            <textarea class="form-control" name="seo_keywords" rows="2">{{ blocks.get('seo_keywords').body if blocks.get('seo_keywords') else '' }}</textarea>
+            <div class="form-text">Рекомендуется: 5–15 фраз, через запятую.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Meta robots</label>
+            <input class="form-control" name="seo_robots" value="{{ blocks.get('seo_robots').body if blocks.get('seo_robots') else '' }}" placeholder="index,follow">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">OG image slot</label>
+            <select class="form-select" name="seo_og_image_slot">
+              {% set og_slot = blocks.get('seo_og_image_slot').body if blocks.get('seo_og_image_slot') else '' %}
+              {% for s in ['hero_image','hero_image_2','hero_image_3','hero_image_4','hero_image_5','site_logo','features_image','product_image','registry_image'] %}
+                <option value="{{ s }}" {% if og_slot == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Twitter card</label>
+            <select class="form-select" name="seo_twitter_card">
+              {% set tw = blocks.get('seo_twitter_card').body if blocks.get('seo_twitter_card') else '' %}
+              <option value="summary" {% if tw == 'summary' %}selected{% endif %}>summary</option>
+              <option value="summary_large_image" {% if tw == 'summary_large_image' or not tw %}selected{% endif %}>summary_large_image</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Google site verification</label>
+            <input class="form-control" name="seo_google_site_verification" value="{{ blocks.get('seo_google_site_verification').body if blocks.get('seo_google_site_verification') else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Yandex verification</label>
+            <input class="form-control" name="seo_yandex_verification" value="{{ blocks.get('seo_yandex_verification').body if blocks.get('seo_yandex_verification') else '' }}">
+          </div>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </form>
+        <hr class="my-4">
+        <div class="text-secondary small">
+          robots.txt: <a href="{{ url_for('robots_txt') }}" target="_blank">{{ url_for('robots_txt') }}</a>
+          <br>
+          sitemap.xml: <a href="{{ url_for('sitemap_xml') }}" target="_blank">{{ url_for('sitemap_xml') }}</a>
+        </div>
       </div>
     </div>
   </div>
