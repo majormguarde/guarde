@@ -44,6 +44,7 @@ from models import (
     AdminUser,
     Asset,
     Base,
+    CommercialOfferRequest,
     ContentBlock,
     DocumentCategory,
     User,
