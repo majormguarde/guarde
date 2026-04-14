@@ -3530,7 +3530,7 @@ def create_app() -> Flask:
         return render_template(
             "commercial_offer.html",
             turnstile_site_key=_turnstile_site_key() if turnstile_enabled() else "",
-            co_submit_token=generate_submit_token(),
+            co_submit_token=issue_submit_token("commercial_offer"),
         )
 
     @app.post("/commercial-offer")
@@ -3544,9 +3544,12 @@ def create_app() -> Flask:
         if request.form.get("email"):
             abort(400)
 
-        submit_token = request.form.get("submit_token")
-        if not submit_token or not verify_submit_token(submit_token):
-            flash("Срок действия формы истек или отправка дублируется. Пожалуйста, обновите страницу.", "danger")
+        ok, reason = consume_submit_token("commercial_offer", request.form.get("submit_token") or "")
+        if not ok:
+            if reason == "too_fast":
+                flash("Слишком часто. Подождите несколько секунд и попробуйте еще раз.", "warning")
+            else:
+                flash("Срок действия формы истек или отправка дублируется. Пожалуйста, обновите страницу.", "danger")
             return redirect(url_for("commercial_offer_get"))
 
         name = (request.form.get("name") or "").strip()
