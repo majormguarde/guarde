@@ -1014,12 +1014,14 @@ def create_app() -> Flask:
         blocks = get_blocks()
         og_slot = (getattr(blocks.get("seo_og_image_slot"), "body", "") or "").strip() or "hero_image"
         og_asset = get_asset_by_slot(og_slot)
+        first_admin = db().scalar(select(AdminUser).order_by(AdminUser.id.asc()))
         return {
             "logo_asset": get_asset_by_slot("site_logo"),
             "favicon_asset": get_asset_by_slot("site_favicon"),
             "client_user": current_client(),
             "blocks": blocks,
             "seo_og_image_asset": og_asset,
+            "site_admin": first_admin,
         }
 
     def allowed_file(filename: str, exts: set[str]) -> bool:

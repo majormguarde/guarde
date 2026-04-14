@@ -590,14 +590,17 @@ main .container {
 }
 
 body.support-drawer-open .sticky-registry-btn,
-body.support-drawer-open .sticky-calc-btn {
+body.support-drawer-open .sticky-calc-btn,
+body.support-drawer-open .sticky-whatsapp-btn,
+body.support-drawer-open .sticky-telegram-btn {
   opacity: 0;
   pointer-events: none;
 }
 
-.sticky-calc-btn {
+.sticky-calc-btn,
+.sticky-whatsapp-btn,
+.sticky-telegram-btn {
   position: fixed;
-  top: calc(50% + 72px);
   right: 0;
   transform: translateY(-50%);
   display: inline-flex;
@@ -605,15 +608,35 @@ body.support-drawer-open .sticky-calc-btn {
   gap: 0.65rem;
   padding: 0.75rem 1.1rem 0.75rem 1rem;
   border-radius: 999px 0 0 999px;
-  background: rgba(var(--corp-primary-rgb), 0.92);
   color: #ffffff;
-  border: 1px solid rgba(var(--corp-primary-rgb), 0.5);
-  box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-primary-rgb), 0.2);
   transition: transform 220ms ease, filter 220ms ease, opacity 180ms ease;
   z-index: 1099;
 }
 
-.sticky-calc-btn__label {
+.sticky-calc-btn {
+  top: calc(50% + 72px);
+  background: rgba(var(--corp-primary-rgb), 0.92);
+  border: 1px solid rgba(var(--corp-primary-rgb), 0.5);
+  box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(var(--corp-primary-rgb), 0.2);
+}
+
+.sticky-whatsapp-btn {
+  top: calc(50% + 130px);
+  background: rgba(37, 211, 102, 0.92);
+  border: 1px solid rgba(37, 211, 102, 0.5);
+  box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(37, 211, 102, 0.2);
+}
+
+.sticky-telegram-btn {
+  top: calc(50% + 188px);
+  background: rgba(36, 161, 222, 0.92);
+  border: 1px solid rgba(36, 161, 222, 0.5);
+  box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(36, 161, 222, 0.2);
+}
+
+.sticky-calc-btn__label,
+.sticky-whatsapp-btn__label,
+.sticky-telegram-btn__label {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -621,36 +644,50 @@ body.support-drawer-open .sticky-calc-btn {
   white-space: nowrap;
 }
 
-.sticky-calc-btn:hover {
+.sticky-calc-btn:hover,
+.sticky-whatsapp-btn:hover,
+.sticky-telegram-btn:hover {
   filter: brightness(1.05);
   transform: translateY(-50%) translateX(0);
 }
 
-.sticky-calc-btn:active {
+.sticky-calc-btn:active,
+.sticky-whatsapp-btn:active,
+.sticky-telegram-btn:active {
   transform: translateY(-50%);
 }
 
-.sticky-calc-btn svg {
+.sticky-calc-btn svg,
+.sticky-whatsapp-btn svg,
+.sticky-telegram-btn svg {
   flex: 0 0 auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .sticky-registry-btn,
-  .sticky-calc-btn {
+  .sticky-calc-btn,
+  .sticky-whatsapp-btn,
+  .sticky-telegram-btn {
     transform: translateY(-50%) translateX(calc(100% - 56px));
   }
 
   .sticky-registry-btn:hover,
   .sticky-registry-btn:focus-visible,
   .sticky-calc-btn:hover,
-  .sticky-calc-btn:focus-visible {
+  .sticky-calc-btn:focus-visible,
+  .sticky-whatsapp-btn:hover,
+  .sticky-whatsapp-btn:focus-visible,
+  .sticky-telegram-btn:hover,
+  .sticky-telegram-btn:focus-visible {
     transform: translateY(-50%) translateX(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sticky-registry-btn,
-  .sticky-calc-btn {
+  .sticky-calc-btn,
+  .sticky-whatsapp-btn,
+  .sticky-telegram-btn {
     transition: none;
   }
 }
