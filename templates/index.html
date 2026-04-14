@@ -40,7 +40,6 @@
         </a>
       {% endif %}
       <div class="d-flex ms-lg-3 gap-2 mt-2 mt-lg-0">
-        <a class="btn btn-primary btn-sm" href="{{ url_for('commercial_offer_get') }}">Запросить КП</a>
         {% if client_user %}
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('cabinet') }}">Кабинет</a>
           <form method="post" action="{{ url_for('logout', next=request.path) }}">
@@ -252,8 +251,8 @@
     </svg>
   </button>
 {% endif %}
-<a class="sticky-calc-btn" href="http://31.148.31.130/calc/" target="_blank" rel="noopener noreferrer" aria-label="Калькулятор">
-  <span class="sticky-calc-btn__label">Калькулятор</span>
+<a class="sticky-calc-btn" href="{{ url_for('commercial_offer_get') }}" aria-label="Запросить КП">
+  <span class="sticky-calc-btn__label">Запросить КП</span>
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
     <path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm0 2v16h10V4H7Zm2 2h6v3H9V6Zm0 5h2v2H9v-2Zm0 4h2v2H9v-2Zm4-4h2v2h-2v-2Zm0 4h2v2h-2v-2Z"/>
   </svg>
