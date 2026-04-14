@@ -550,6 +550,8 @@ def create_app() -> Flask:
         if is_sqlite_url(db_url):
             conn.execute(text("PRAGMA journal_mode=WAL"))
             conn.execute(text("PRAGMA foreign_keys=ON"))
+
+    def _content_type_for_filename(name: str) -> str:
         guess, _ = mimetypes.guess_type(name or "")
         return guess or "application/octet-stream"
 
