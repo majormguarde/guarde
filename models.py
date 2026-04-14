@@ -22,6 +22,7 @@ class AdminUser(Base):
     email: Mapped[str] = mapped_column(Text, default="", nullable=False)
     telegram: Mapped[str] = mapped_column(Text, default="", nullable=False)
     whatsapp: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    bip: Mapped[str] = mapped_column(Text, default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 

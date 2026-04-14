@@ -730,6 +730,8 @@ def create_app() -> Flask:
                 conn.execute(text("ALTER TABLE admin_users ADD COLUMN telegram TEXT NOT NULL DEFAULT ''"))
             if "whatsapp" not in admin_cols:
                 conn.execute(text("ALTER TABLE admin_users ADD COLUMN whatsapp TEXT NOT NULL DEFAULT ''"))
+            if "bip" not in admin_cols:
+                conn.execute(text("ALTER TABLE admin_users ADD COLUMN bip TEXT NOT NULL DEFAULT ''"))
 
             attachment_cols = {
                 r._mapping["name"] for r in conn.execute(text("PRAGMA table_info(support_attachments)"))
@@ -3578,6 +3580,7 @@ def create_app() -> Flask:
         user.email = normalize_multivalue(request.form.get("admin_email") or "")
         user.telegram = normalize_multivalue(request.form.get("admin_telegram") or "")
         user.whatsapp = normalize_multivalue(request.form.get("admin_whatsapp") or "")
+        user.bip = normalize_multivalue(request.form.get("admin_bip") or "")
         flash("Контакты администратора обновлены.", "success")
         return redirect(next_url or url_for("admin_settings", tab="contact") + "#contact")
 

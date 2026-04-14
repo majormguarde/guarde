@@ -279,6 +279,46 @@
       </svg>
     </a>
   {% endif %}
+  {% if site_admin.bip and site_admin.bip.strip() %}
+    <a class="sticky-bip-btn" href="#" data-bs-toggle="modal" data-bs-target="#bipModal" aria-label="BiP">
+      <span class="sticky-bip-btn__label">BiP</span>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10c0-5.52-4.48-10-10-10zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2.5-4c.83 0 1.5-.67 1.5-1.5S10.33 13 9.5 13 8 13.67 8 14.5 8.67 16 9.5 16zm5 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-2.5-6c1.38 0 2.5-1.12 2.5-2.5S13.38 5.5 12 5.5 9.5 6.62 9.5 8 10.62 10 12 10z"/>
+      </svg>
+    </a>
+    
+    <div class="modal fade" id="bipModal" tabindex="-1" aria-labelledby="bipModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title" id="bipModalLabel">Связь через BiP</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+          </div>
+          <div class="modal-body text-center pt-3 pb-4">
+            <div class="mb-4">
+              <svg viewBox="0 0 24 24" width="64" height="64" class="text-primary mb-3">
+                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10c0-5.52-4.48-10-10-10zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2.5-4c.83 0 1.5-.67 1.5-1.5S10.33 13 9.5 13 8 13.67 8 14.5 8.67 16 9.5 16zm5 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-2.5-6c1.38 0 2.5-1.12 2.5-2.5S13.38 5.5 12 5.5 9.5 6.62 9.5 8 10.62 10 12 10z"/>
+              </svg>
+              <h4 class="fw-bold mb-2">Напишите нам в BiP</h4>
+              <p class="text-secondary mb-1">Номер: <strong>{{ site_admin.bip.strip() }}</strong></p>
+              <p class="text-secondary small mt-3">У вас нет мессенджера BiP? Установите его по ссылкам ниже:</p>
+            </div>
+            <div class="d-flex flex-column gap-2 px-md-4">
+              <a href="https://play.google.com/store/apps/details?id=com.turkcell.bip" target="_blank" class="btn btn-outline-dark d-flex align-items-center justify-content-center gap-2">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 20.5V3.5C3 2.91 3.34 2.39 3.84 2.15L13.69 12 3.84 21.85C3.34 21.61 3 21.09 3 20.5zm11.41-7.79l2.83-2.83-2.83-2.83L4.97 12l9.44.71zM18.31 12l-2.48 2.48 1.41 1.41 2.83-2.83-2.83-2.83-1.41 1.41 2.48 2.48z"/></svg>
+                Google Play (Android)
+              </a>
+              <a href="https://apps.apple.com/app/bip-messenger-video-call/id583274826" target="_blank" class="btn btn-outline-dark d-flex align-items-center justify-content-center gap-2">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm3.36 12.3c-.09.18-.3.26-.5.18-.18-.08-.26-.3-.18-.5.08-.18.3-.26.5-.18.18.08.26.3.18.5zm-1.8.8c-.14.28-.48.4-.76.26-.28-.14-.4-.48-.26-.76.14-.28.48-.4.76-.26.28.14.4.48.26.76zm-1.8.8c-.2.4-.68.58-1.08.38-.4-.2-.58-.68-.38-1.08.2-.4.68-.58 1.08-.38.4.2.58.68.38 1.08zm-1.8.8c-.25.5-.85.73-1.35.48-.5-.25-.73-.85-.48-1.35.25-.5.85-.73 1.35-.48.5.25.73.85.48 1.35zM12 6.5c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>
+                App Store (iOS/Mac)
+              </a>
+              <a href="https://bip.com/ru/" target="_blank" class="btn btn-link text-decoration-none mt-2">Официальный сайт BiP</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
 {% endif %}
 
 {% include "admin/registr_po.html" %}

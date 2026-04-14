@@ -592,14 +592,16 @@ main .container {
 body.support-drawer-open .sticky-registry-btn,
 body.support-drawer-open .sticky-calc-btn,
 body.support-drawer-open .sticky-whatsapp-btn,
-body.support-drawer-open .sticky-telegram-btn {
+body.support-drawer-open .sticky-telegram-btn,
+body.support-drawer-open .sticky-bip-btn {
   opacity: 0;
   pointer-events: none;
 }
 
 .sticky-calc-btn,
 .sticky-whatsapp-btn,
-.sticky-telegram-btn {
+.sticky-telegram-btn,
+.sticky-bip-btn {
   position: fixed;
   right: 0;
   transform: translateY(-50%);
@@ -634,9 +636,17 @@ body.support-drawer-open .sticky-telegram-btn {
   box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(36, 161, 222, 0.2);
 }
 
+.sticky-bip-btn {
+  top: calc(50% + 246px);
+  background: rgba(2, 140, 203, 0.92);
+  border: 1px solid rgba(2, 140, 203, 0.5);
+  box-shadow: -0.6rem 0 1.6rem rgba(0, 0, 0, 0.22), 0 0 1.4rem rgba(2, 140, 203, 0.2);
+}
+
 .sticky-calc-btn__label,
 .sticky-whatsapp-btn__label,
-.sticky-telegram-btn__label {
+.sticky-telegram-btn__label,
+.sticky-bip-btn__label {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -646,20 +656,23 @@ body.support-drawer-open .sticky-telegram-btn {
 
 .sticky-calc-btn:hover,
 .sticky-whatsapp-btn:hover,
-.sticky-telegram-btn:hover {
+.sticky-telegram-btn:hover,
+.sticky-bip-btn:hover {
   filter: brightness(1.05);
   transform: translateY(-50%) translateX(0);
 }
 
 .sticky-calc-btn:active,
 .sticky-whatsapp-btn:active,
-.sticky-telegram-btn:active {
+.sticky-telegram-btn:active,
+.sticky-bip-btn:active {
   transform: translateY(-50%);
 }
 
 .sticky-calc-btn svg,
 .sticky-whatsapp-btn svg,
-.sticky-telegram-btn svg {
+.sticky-telegram-btn svg,
+.sticky-bip-btn svg {
   flex: 0 0 auto;
 }
 
@@ -667,7 +680,8 @@ body.support-drawer-open .sticky-telegram-btn {
   .sticky-registry-btn,
   .sticky-calc-btn,
   .sticky-whatsapp-btn,
-  .sticky-telegram-btn {
+  .sticky-telegram-btn,
+  .sticky-bip-btn {
     transform: translateY(-50%) translateX(calc(100% - 56px));
   }
 
@@ -678,7 +692,9 @@ body.support-drawer-open .sticky-telegram-btn {
   .sticky-whatsapp-btn:hover,
   .sticky-whatsapp-btn:focus-visible,
   .sticky-telegram-btn:hover,
-  .sticky-telegram-btn:focus-visible {
+  .sticky-telegram-btn:focus-visible,
+  .sticky-bip-btn:hover,
+  .sticky-bip-btn:focus-visible {
     transform: translateY(-50%) translateX(0);
   }
 }
@@ -687,7 +703,8 @@ body.support-drawer-open .sticky-telegram-btn {
   .sticky-registry-btn,
   .sticky-calc-btn,
   .sticky-whatsapp-btn,
-  .sticky-telegram-btn {
+  .sticky-telegram-btn,
+  .sticky-bip-btn {
     transition: none;
   }
 }
