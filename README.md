@@ -1,6 +1,6 @@
 # Guarde
 
-Веб‑приложение на Flask для сайта и обработки заявок техподдержки. По умолчанию хранение данных — SQLite (`site.db`), но можно переключить на MySQL через конфигурацию.
+Веб‑приложение на Flask для сайта и обработки заявок техподдержки. По умолчанию хранение данных — SQLite (`site.db`), но можно переключить на PostgreSQL через конфигурацию.
 
 ## Локальный запуск (для проверки)
 
@@ -17,7 +17,7 @@ python app.py
 
 Открыть: `http://127.0.0.1:5000/`
 
-## Настройка БД (SQLite/MySQL)
+## Настройка БД (SQLite/PostgreSQL)
 
 По умолчанию используется SQLite (файл `site.db` в корне проекта).
 
@@ -31,30 +31,27 @@ python app.py
 # SQLite
 DATABASE_URL=sqlite:///./site.db
 
-# MySQL 8 (пример)
-DATABASE_URL=mysql+pymysql://user:password@127.0.0.1:3306/guarde?charset=utf8mb4
+# PostgreSQL (пример)
+DATABASE_URL=postgresql+psycopg2://user:password@127.0.0.1:5432/guarde
 ```
 
 2) Через `DB_BACKEND` и параметры подключения:
 
 ```bash
-DB_BACKEND=mysql8
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_DATABASE=guarde
-MYSQL_USER=guarde
-MYSQL_PASSWORD=secret
+DB_BACKEND=postgresql
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+POSTGRES_DATABASE=guarde
+POSTGRES_USER=guarde
+POSTGRES_PASSWORD=secret
 
 # необязательно
-MYSQL_DRIVER=pymysql
-MYSQL_CHARSET=utf8mb4
-MYSQL_COLLATION=utf8mb4_0900_ai_ci
+POSTGRES_DRIVER=psycopg2
 ```
 
 Примечания:
-- `DB_BACKEND` может быть `mysql`, `mysql8` или `mariadb`.
-- Для MySQL 8 по умолчанию используется `utf8mb4` и collation `utf8mb4_0900_ai_ci`.
-- Для MySQL нужен драйвер. В `requirements.txt` добавлен `PyMySQL` (по умолчанию используется `mysql+pymysql`).
+- `DB_BACKEND` может быть `postgres` или `postgresql`.
+- Для PostgreSQL нужен драйвер. В `requirements.txt` добавлен `psycopg2-binary` (по умолчанию используется `postgresql+psycopg2`).
 - SQLite‑специфичные оптимизации (FTS5 для поиска в тикетах) доступны только при SQLite.
 
 ## Развёртывание на SpaceWeb
