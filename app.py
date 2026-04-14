@@ -1454,6 +1454,12 @@ def create_app() -> Flask:
             if looks_like_bot_headers():
                 abort(400)
 
+    @app.before_request
+    def _commercial_offer_bot_guard() -> None:
+        if request.method == "POST" and request.path == "/commercial-offer":
+            if looks_like_bot_headers():
+                abort(400)
+
     @app.get("/")
     def index():
         blocks = get_blocks()
@@ -3550,14 +3556,19 @@ def create_app() -> Flask:
 
     @app.post("/commercial-offer")
     def commercial_offer_submit():
+        email_honeypot = (request.form.get("email") or "").strip()
+        honeypot = (request.form.get("fax") or "").strip()
+        turnstile_res = (request.form.get("cf-turnstile-response") or "").strip()
+
+        if honeypot:
+            return ("", 204)
+        if email_honeypot:
+            return ("", 204)
+
         if turnstile_enabled():
-            turnstile_res = request.form.get("cf-turnstile-response")
-            if not verify_turnstile(turnstile_res):
+            if not verify_turnstile(turnstile_res, remote_ip()):
                 flash("Проверка на бота не пройдена. Пожалуйста, попробуйте еще раз.", "danger")
                 return redirect(url_for("commercial_offer_get"))
-
-        if request.form.get("email"):
-            abort(400)
 
         ok, reason = consume_submit_token("commercial_offer", request.form.get("submit_token") or "")
         if not ok:

@@ -52,6 +52,10 @@
                 <label class="form-label">*****</label>
                 <input class="form-control form-control-lg" name="email" type="email" autocomplete="off" tabindex="-1" placeholder="*****">
               </div>
+              <div class="col-12 col-md-6 co-honeypot" hidden>
+                <label class="form-label">Факс</label>
+                <input class="form-control form-control-lg" name="fax" type="text" autocomplete="off" tabindex="-1" placeholder="Факс">
+              </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Компания / Организация <span class="text-danger">*</span></label>
                 <input class="form-control form-control-lg" name="company" autocomplete="organization" required value="{{ client_user.company if client_user else '' }}">
