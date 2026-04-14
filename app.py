@@ -2027,10 +2027,24 @@ def create_app() -> Flask:
         new_count = db().scalar(
             select(func.count()).select_from(SupportMessage).where(SupportMessage.status == "new")
         )
+        co_new_count = db().scalar(
+            select(func.count()).select_from(CommercialOfferRequest).where(CommercialOfferRequest.status == "new")
+        )
+        co_total_count = db().scalar(
+            select(func.count()).select_from(CommercialOfferRequest)
+        )
+        recent_co_requests = db().scalars(
+            select(CommercialOfferRequest)
+            .order_by(CommercialOfferRequest.created_at.desc())
+            .limit(5)
+        ).all()
         return render_template(
             "admin/dashboard.html",
             user=current_user(),
             new_messages=int(new_count or 0),
+            new_co_requests=int(co_new_count or 0),
+            total_co_requests=int(co_total_count or 0),
+            recent_co_requests=recent_co_requests,
         )
 
     @app.get("/admin/content")
