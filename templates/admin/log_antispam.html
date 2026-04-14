@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+{% block title %}Админка — Антиспам журнал{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+  <h1 class="h4 mb-0">Антиспам журнал КП</h1>
+  <div class="text-secondary small">Записей: {{ total }}</div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" action="{{ url_for('admin_logs_antispam') }}" class="row g-2 align-items-end">
+      <div class="col-12 col-lg-5">
+        <label class="form-label mb-1">Поиск</label>
+        <input class="form-control" name="q" value="{{ q }}" placeholder="ip, детали, логин">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label mb-1">Дата от</label>
+        <input class="form-control" type="date" name="date_from" value="{{ date_from }}">
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label mb-1">Дата до</label>
+        <input class="form-control" type="date" name="date_to" value="{{ date_to }}">
+      </div>
+      <div class="col-12 col-lg-2">
+        <label class="form-label mb-1">Событие</label>
+        <select class="form-select" name="event">
+          <option value="all" {% if event == "all" %}selected{% endif %}>Все</option>
+          {% for event_name in event_counts.keys()|sort %}
+            <option value="{{ event_name }}" {% if event == event_name %}selected{% endif %}>{{ event_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-lg-1 d-grid">
+        <button class="btn btn-primary" type="submit">Ок</button>
+      </div>
+      <div class="col-12">
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-outline-secondary btn-sm {% if event == 'all' %}active{% endif %}" href="{{ url_for('admin_logs_antispam', q=q, event='all', date_from=date_from, date_to=date_to) }}">
+            Все ({{ total }})
+          </a>
+          {% for event_name, count in event_counts.items() %}
+            <a class="btn btn-outline-secondary btn-sm {% if event == event_name %}active{% endif %}" href="{{ url_for('admin_logs_antispam', q=q, event=event_name, date_from=date_from, date_to=date_to) }}">
+              {{ event_name }} ({{ count }})
+            </a>
+          {% endfor %}
+          <a class="btn btn-link btn-sm" href="{{ url_for('admin_logs_antispam') }}">Сбросить</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 170px;">Дата</th>
+          <th style="width: 200px;">Клиент</th>
+          <th style="width: 180px;">Срабатывание</th>
+          <th style="width: 150px;">IP</th>
+          <th>Детали</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td class="text-secondary">{{ r.created_at.strftime("%d.%m.%Y %H:%M:%S") }}</td>
+            <td>
+              {% if r.user_id %}
+                <span class="fw-semibold">{{ users_map.get(r.user_id, "user#" ~ r.user_id) }}</span>
+              {% else %}
+                <span class="text-secondary">Гость</span>
+              {% endif %}
+            </td>
+            <td><span class="badge text-bg-light">{{ r.event }}</span></td>
+            <td class="font-monospace small">{{ r.ip }}</td>
+            <td class="small text-break">{{ r.details or "—" }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" class="text-center text-secondary py-4">Подозрительных срабатываний пока нет.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if pages > 1 %}
+  <nav class="d-flex align-items-center justify-content-between mt-3" aria-label="Навигация по страницам">
+    <div class="text-secondary small">Страница {{ page }} из {{ pages }}</div>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('admin_logs_antispam', q=q, event=event, date_from=date_from, date_to=date_to, page=page-1) }}">Назад</a>
+      </li>
+      <li class="page-item {% if page >= pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('admin_logs_antispam', q=q, event=event, date_from=date_from, date_to=date_to, page=page+1) }}">Вперёд</a>
+      </li>
+    </ul>
+  </nav>
+{% endif %}
+{% endblock %}

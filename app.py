@@ -90,6 +90,26 @@ ALLOWED_SUPPORT_UPLOAD_EXTS = {
     "avi",
 }
 
+COMMERCIAL_OFFER_MAX_LENGTHS = {
+    "name": 120,
+    "company": 200,
+    "contact_email": 200,
+    "phone": 120,
+    "telegram": 120,
+    "whatsapp": 120,
+    "purpose": 120,
+    "object_description": 4000,
+}
+
+COMMERCIAL_OFFER_SPAM_PATTERNS = (
+    re.compile(r"(?i)\b(?:casino|online casino|betting|forex|crypto|bitcoin|viagra|cialis|porn|adult dating)\b"),
+    re.compile(r"(?i)\b(?:guest post|backlink|link building|seo service|traffic boost|promotion service)\b"),
+    re.compile(r"(?i)\b(?:казино|ставк|виагр|порно|эскорт|крипт|биткоин|займ без отказа|быстрый заработок)\b"),
+)
+
+COMMERCIAL_OFFER_URL_RE = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
+COMMERCIAL_OFFER_HTML_RE = re.compile(r"(?i)<[^>]+>")
+
 DEFAULT_CONTENT: dict[str, dict[str, str]] = {
     "brand_full": {"title": "Бренд (полное)", "body": "СКУД «Стражъ | Авангардъ»"},
     "slogan": {"title": "Слоган", "body": "Российская сетевая СКУД для объектов любой сложности"},
@@ -1350,6 +1370,35 @@ def create_app() -> Flask:
         parts = [p for p in parts if p]
         return "\n".join(parts)
 
+    def log_commercial_offer_antispam(reason: str, details: object | None = None) -> None:
+        user = current_client()
+        log_user_event(f"co_antispam_{reason}", user.id if user else None, details)
+
+    def commercial_offer_length_error(fields: dict[str, str]) -> tuple[str, int] | None:
+        for key, limit in COMMERCIAL_OFFER_MAX_LENGTHS.items():
+            value = (fields.get(key) or "").strip()
+            if len(value) > limit:
+                return (key, limit)
+        return None
+
+    def commercial_offer_spam_reason(fields: dict[str, str]) -> str | None:
+        text_fields = [
+            fields.get("name") or "",
+            fields.get("company") or "",
+            fields.get("purpose") or "",
+            fields.get("object_description") or "",
+        ]
+        for value in text_fields:
+            if COMMERCIAL_OFFER_URL_RE.search(value):
+                return "links_detected"
+            if COMMERCIAL_OFFER_HTML_RE.search(value):
+                return "html_detected"
+        combined = "\n".join(text_fields)
+        for pattern in COMMERCIAL_OFFER_SPAM_PATTERNS:
+            if pattern.search(combined):
+                return "spam_phrase_detected"
+        return None
+
     def store_support_upload_in_dir(file_storage, rel_dir: Path) -> tuple[str, str, int]:
         original_name = file_storage.filename or ""
         safe = secure_filename(original_name)
@@ -1458,6 +1507,14 @@ def create_app() -> Flask:
     def _commercial_offer_bot_guard() -> None:
         if request.method == "POST" and request.path == "/commercial-offer":
             if looks_like_bot_headers():
+                log_commercial_offer_antispam(
+                    "headers_blocked",
+                    {
+                        "path": request.path,
+                        "origin": request.headers.get("Origin") or "",
+                        "referer": request.headers.get("Referer") or "",
+                    },
+                )
                 abort(400)
 
     @app.get("/")
@@ -3561,17 +3618,21 @@ def create_app() -> Flask:
         turnstile_res = (request.form.get("cf-turnstile-response") or "").strip()
 
         if honeypot:
+            log_commercial_offer_antispam("honeypot_fax", {"field": "fax"})
             return ("", 204)
         if email_honeypot:
+            log_commercial_offer_antispam("honeypot_email", {"field": "email"})
             return ("", 204)
 
         if turnstile_enabled():
             if not verify_turnstile(turnstile_res, remote_ip()):
+                log_commercial_offer_antispam("turnstile_failed", {"path": request.path})
                 flash("Проверка на бота не пройдена. Пожалуйста, попробуйте еще раз.", "danger")
                 return redirect(url_for("commercial_offer_get"))
 
         ok, reason = consume_submit_token("commercial_offer", request.form.get("submit_token") or "")
         if not ok:
+            log_commercial_offer_antispam(f"submit_token_{reason}", {"path": request.path})
             if reason == "too_fast":
                 flash("Слишком часто. Подождите несколько секунд и попробуйте еще раз.", "warning")
             else:
@@ -3586,9 +3647,42 @@ def create_app() -> Flask:
         whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
         purpose = (request.form.get("purpose") or "").strip()
         object_description = (request.form.get("object_description") or "").strip()
+        fields = {
+            "name": name,
+            "company": company,
+            "contact_email": contact_email,
+            "phone": phone,
+            "telegram": telegram,
+            "whatsapp": whatsapp,
+            "purpose": purpose,
+            "object_description": object_description,
+        }
 
         if not name or not company or not contact_email or not phone or not purpose or not object_description:
             flash("Пожалуйста, заполните все обязательные поля.", "danger")
+            return redirect(url_for("commercial_offer_get"))
+
+        length_error = commercial_offer_length_error(fields)
+        if length_error is not None:
+            field_name, max_length = length_error
+            log_commercial_offer_antispam(
+                "length_exceeded",
+                {"field": field_name, "max_length": max_length},
+            )
+            flash("Некоторые поля превышают допустимую длину. Проверьте форму и попробуйте еще раз.", "danger")
+            return redirect(url_for("commercial_offer_get"))
+
+        spam_reason = commercial_offer_spam_reason(fields)
+        if spam_reason is not None:
+            log_commercial_offer_antispam(
+                spam_reason,
+                {
+                    "name": name[:120],
+                    "company": company[:160],
+                    "purpose": purpose[:160],
+                },
+            )
+            flash("Запрос отклонён системой защиты. Проверьте текст и попробуйте еще раз.", "danger")
             return redirect(url_for("commercial_offer_get"))
 
         user_id = None
@@ -3868,6 +3962,87 @@ def create_app() -> Flask:
 
         return render_template(
             "admin/log_users.html",
+            rows=rows,
+            users_map=users_map,
+            q=q,
+            event=event,
+            event_counts=event_counts,
+            date_from=date_from,
+            date_to=date_to,
+            page=page,
+            pages=pages,
+            total=total,
+        )
+
+    @app.get("/admin/logs/antispam")
+    @login_required
+    def admin_logs_antispam():
+        q = (request.args.get("q") or "").strip()
+        event = (request.args.get("event") or "all").strip()
+        date_from = (request.args.get("date_from") or "").strip()
+        date_to = (request.args.get("date_to") or "").strip()
+        try:
+            page = max(1, int(request.args.get("page") or "1"))
+        except ValueError:
+            page = 1
+        per_page = 100
+
+        criteria: list[object] = [UserEventLog.event.startswith("co_antispam_")]
+        if event and event != "all":
+            criteria.append(UserEventLog.event == event)
+        dt_from = _parse_date(date_from)
+        if dt_from is not None:
+            criteria.append(UserEventLog.created_at >= dt_from)
+        dt_to = _parse_date(date_to)
+        if dt_to is not None:
+            dt0 = dt_to.replace(hour=0, minute=0, second=0, microsecond=0)
+            criteria.append(UserEventLog.created_at < dt0 + timedelta(days=1))
+        if q:
+            user_ids_like = db().scalars(select(User.id).where(_messages_ci_like(User.username, q))).all()
+            crit = [
+                _messages_ci_like(UserEventLog.details, q),
+                _messages_ci_like(UserEventLog.ip, q),
+                _messages_ci_like(UserEventLog.user_agent, q),
+            ]
+            if user_ids_like:
+                crit.append(UserEventLog.user_id.in_([int(x) for x in user_ids_like]))
+            criteria.append(or_(*crit))
+        where_clause = and_(*criteria)
+
+        event_counts_rows = (
+            db()
+            .execute(
+                select(UserEventLog.event, func.count())
+                .where(UserEventLog.event.startswith("co_antispam_"))
+                .group_by(UserEventLog.event)
+            )
+            .all()
+        )
+        event_counts = {str(e or ""): int(c or 0) for e, c in event_counts_rows}
+
+        count_stmt = select(func.count()).select_from(UserEventLog).where(where_clause)
+        total = int(db().scalar(count_stmt) or 0)
+        pages = max(1, (total + per_page - 1) // per_page)
+        page = min(page, pages)
+
+        rows = db().scalars(
+            select(UserEventLog)
+            .where(where_clause)
+            .order_by(UserEventLog.created_at.desc())
+            .limit(per_page)
+            .offset((page - 1) * per_page)
+        ).all()
+
+        user_ids = sorted({int(r.user_id) for r in rows if r.user_id is not None})
+        users_map: dict[int, str] = {}
+        if user_ids:
+            users_map = {
+                int(uid): uname
+                for uid, uname in db().execute(select(User.id, User.username).where(User.id.in_(user_ids))).all()
+            }
+
+        return render_template(
+            "admin/log_antispam.html",
             rows=rows,
             users_map=users_map,
             q=q,

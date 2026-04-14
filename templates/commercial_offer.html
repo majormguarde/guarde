@@ -46,7 +46,7 @@
             <div class="row g-3 mb-4">
               <div class="col-12 col-md-6">
                 <label class="form-label">Ваше имя <span class="text-danger">*</span></label>
-                <input class="form-control form-control-lg" name="name" autocomplete="name" required value="{{ client_user.username if client_user else '' }}">
+                <input class="form-control form-control-lg" name="name" autocomplete="name" maxlength="120" required value="{{ client_user.username if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6 co-honeypot" hidden>
                 <label class="form-label">*****</label>
@@ -58,23 +58,23 @@
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Компания / Организация <span class="text-danger">*</span></label>
-                <input class="form-control form-control-lg" name="company" autocomplete="organization" required value="{{ client_user.company if client_user else '' }}">
+                <input class="form-control form-control-lg" name="company" autocomplete="organization" maxlength="200" required value="{{ client_user.company if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Email для связи <span class="text-danger">*</span></label>
-                <input class="form-control form-control-lg" type="email" name="contact_email" autocomplete="email" required>
+                <input class="form-control form-control-lg" type="email" name="contact_email" autocomplete="email" maxlength="200" required>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Контактный телефон <span class="text-danger">*</span></label>
-                <input class="form-control form-control-lg" name="phone" autocomplete="tel" required value="{{ client_user.phone if client_user else '' }}">
+                <input class="form-control form-control-lg" name="phone" autocomplete="tel" maxlength="120" required value="{{ client_user.phone if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Telegram (опционально)</label>
-                <input class="form-control form-control-lg" name="telegram" autocomplete="off" placeholder="@username" value="{{ client_user.telegram if client_user else '' }}">
+                <input class="form-control form-control-lg" name="telegram" autocomplete="off" maxlength="120" placeholder="@username" value="{{ client_user.telegram if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">WhatsApp (опционально)</label>
-                <input class="form-control form-control-lg" name="whatsapp" autocomplete="off" placeholder="номер" value="{{ client_user.whatsapp if client_user else '' }}">
+                <input class="form-control form-control-lg" name="whatsapp" autocomplete="off" maxlength="120" placeholder="номер" value="{{ client_user.whatsapp if client_user else '' }}">
               </div>
             </div>
 
@@ -93,7 +93,7 @@
               </div>
               <div class="col-12">
                 <label class="form-label">Описание объекта и задачи <span class="text-danger">*</span></label>
-                <textarea class="form-control form-control-lg" name="object_description" rows="5" required placeholder="Опишите ваш объект (тип, площадь, примерное количество сотрудников) и какие задачи должна решать СКУД..."></textarea>
+                <textarea class="form-control form-control-lg" name="object_description" rows="5" maxlength="4000" required placeholder="Опишите ваш объект (тип, площадь, примерное количество сотрудников) и какие задачи должна решать СКУД..."></textarea>
                 <div class="form-text">Чем подробнее вы опишете задачу, тем точнее будет коммерческое предложение.</div>
               </div>
             </div>
