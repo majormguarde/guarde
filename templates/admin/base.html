@@ -50,6 +50,7 @@
 
           <div class="mt-3 mb-2 px-1 text-uppercase fw-bold text-white">Документы</div>
           <div class="nav nav-pills flex-column gap-1 mb-3">
+            <a class="nav-link {% if request.path.startswith('/admin/commercial-offers') %}active{% endif %}" href="{{ url_for('admin_co_requests') }}">Запросы КП</a>
             <a class="nav-link {% if request.path.startswith('/admin/documents') %}active{% endif %}" href="{{ url_for('admin_documents') }}">Загруженные документы</a>
             <a class="nav-link {% if request.path.startswith('/admin/downloads') %}active{% endif %}" href="{{ url_for('admin_downloads') }}">Дистрибутивы</a>
           </div>

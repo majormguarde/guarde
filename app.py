@@ -545,8 +545,11 @@ def create_app() -> Flask:
     if app.config["STORAGE_BACKEND"] == "local":
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
-
-    def _content_type_for_filename(name: str) -> str:
+    
+    with engine.connect() as conn:
+        if is_sqlite_url(db_url):
+            conn.execute(text("PRAGMA journal_mode=WAL"))
+            conn.execute(text("PRAGMA foreign_keys=ON"))
         guess, _ = mimetypes.guess_type(name or "")
         return guess or "application/octet-stream"
 
@@ -2733,6 +2736,91 @@ def create_app() -> Flask:
         flash("Файл удалён.", "info")
         return redirect(next_url or url_for("admin_downloads"))
 
+    @app.get("/admin/commercial-offers")
+    @login_required
+    def admin_co_requests():
+        page_str = request.args.get("page") or "1"
+        try:
+            page = int(page_str)
+        except ValueError:
+            page = 1
+        if page < 1:
+            page = 1
+        per_page = 20
+
+        q = (request.args.get("q") or "").strip()
+        status_filter = (request.args.get("status") or "").strip()
+        sort = (request.args.get("sort") or "newest").strip()
+
+        where_clause = None
+        if q:
+            likes = [
+                CommercialOfferRequest.name.ilike(f"%{q}%"),
+                CommercialOfferRequest.company.ilike(f"%{q}%"),
+                CommercialOfferRequest.email.ilike(f"%{q}%"),
+                CommercialOfferRequest.phone.ilike(f"%{q}%"),
+                CommercialOfferRequest.object_description.ilike(f"%{q}%"),
+            ]
+            where_clause = or_(*likes)
+        if status_filter:
+            status_cond = CommercialOfferRequest.status == status_filter
+            if where_clause is not None:
+                where_clause = and_(where_clause, status_cond)
+            else:
+                where_clause = status_cond
+
+        count_stmt = select(func.count()).select_from(CommercialOfferRequest)
+        if where_clause is not None:
+            count_stmt = count_stmt.where(where_clause)
+        total = db().scalar(count_stmt) or 0
+        total_pages = (total + per_page - 1) // per_page
+
+        stmt = select(CommercialOfferRequest)
+        if where_clause is not None:
+            stmt = stmt.where(where_clause)
+        if sort == "oldest":
+            stmt = stmt.order_by(CommercialOfferRequest.created_at.asc())
+        else:
+            stmt = stmt.order_by(CommercialOfferRequest.created_at.desc())
+        stmt = stmt.limit(per_page).offset((page - 1) * per_page)
+        reqs = db().scalars(stmt).all()
+
+        return render_template(
+            "admin/co_requests.html",
+            reqs=reqs,
+            total=total,
+            page=page,
+            total_pages=total_pages,
+            q=q,
+            status_filter=status_filter,
+            sort=sort,
+        )
+
+    @app.post("/admin/commercial-offers/<int:req_id>/status")
+    @login_required
+    def admin_co_request_status(req_id: int):
+        req_obj = db().get(CommercialOfferRequest, req_id)
+        if not req_obj:
+            abort(404)
+        new_status = (request.form.get("status") or "").strip()
+        if new_status in {"new", "in_progress", "completed", "rejected"}:
+            req_obj.status = new_status
+            db().commit()
+            flash("Статус запроса обновлен.", "success")
+        return redirect(safe_next_url(request.form.get("next")) or url_for("admin_co_requests"))
+
+    @app.post("/admin/commercial-offers/<int:req_id>/notes")
+    @login_required
+    def admin_co_request_notes(req_id: int):
+        req_obj = db().get(CommercialOfferRequest, req_id)
+        if not req_obj:
+            abort(404)
+        notes = (request.form.get("staff_notes") or "").strip()
+        req_obj.staff_notes = notes
+        db().commit()
+        flash("Служебные заметки обновлены.", "success")
+        return redirect(safe_next_url(request.form.get("next")) or url_for("admin_co_requests"))
+
     @app.get("/admin/messages")
     @login_required
     def admin_messages():
@@ -3434,6 +3522,68 @@ def create_app() -> Flask:
             )
         flash("Заявка создана.", "success")
         return redirect(url_for("admin_message_view", msg_id=msg.id, next=next_url))
+
+    @app.get("/commercial-offer")
+    def commercial_offer_get():
+        return render_template(
+            "commercial_offer.html",
+            turnstile_site_key=_turnstile_site_key() if turnstile_enabled() else "",
+            co_submit_token=generate_submit_token(),
+        )
+
+    @app.post("/commercial-offer")
+    def commercial_offer_submit():
+        if turnstile_enabled():
+            turnstile_res = request.form.get("cf-turnstile-response")
+            if not verify_turnstile(turnstile_res):
+                flash("Проверка на бота не пройдена. Пожалуйста, попробуйте еще раз.", "danger")
+                return redirect(url_for("commercial_offer_get"))
+
+        if request.form.get("email"):
+            abort(400)
+
+        submit_token = request.form.get("submit_token")
+        if not submit_token or not verify_submit_token(submit_token):
+            flash("Срок действия формы истек или отправка дублируется. Пожалуйста, обновите страницу.", "danger")
+            return redirect(url_for("commercial_offer_get"))
+
+        name = (request.form.get("name") or "").strip()
+        company = (request.form.get("company") or "").strip()
+        contact_email = (request.form.get("contact_email") or "").strip()
+        phone = normalize_multivalue(request.form.get("phone") or "")
+        telegram = normalize_multivalue(request.form.get("telegram") or "")
+        whatsapp = normalize_multivalue(request.form.get("whatsapp") or "")
+        purpose = (request.form.get("purpose") or "").strip()
+        object_description = (request.form.get("object_description") or "").strip()
+
+        if not name or not company or not contact_email or not phone or not purpose or not object_description:
+            flash("Пожалуйста, заполните все обязательные поля.", "danger")
+            return redirect(url_for("commercial_offer_get"))
+
+        user_id = None
+        if current_client():
+            user_id = current_client().id
+            log_user_event("co_request", user_id, "Запрос КП")
+        else:
+            log_user_event("co_request", None, f"Запрос КП от {name} ({company})")
+
+        req = CommercialOfferRequest(
+            user_id=user_id,
+            name=name,
+            email=contact_email,
+            company=company,
+            phone=phone,
+            telegram=telegram,
+            whatsapp=whatsapp,
+            purpose=purpose,
+            object_description=object_description,
+            status="new",
+        )
+        db().add(req)
+        db().commit()
+
+        flash("Ваш запрос коммерческого предложения успешно отправлен. Мы свяжемся с вами в ближайшее время.", "success")
+        return redirect(url_for("index"))
 
     @app.get("/admin/settings")
     @login_required

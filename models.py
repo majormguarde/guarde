@@ -111,6 +111,24 @@ class UserEventLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class CommercialOfferRequest(Base):
+    __tablename__ = "commercial_offer_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    email: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    company: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    phone: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    telegram: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    whatsapp: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    object_description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    staff_notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="new", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class SupportAttachment(Base):
     __tablename__ = "support_attachments"
 

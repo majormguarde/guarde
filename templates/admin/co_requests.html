@@ -1,0 +1,126 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Журнал запросов КП - Админка{% endblock %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="h3 mb-0">Журнал запросов КП</h2>
+</div>
+
+<div class="card mb-4 border-0 shadow-sm">
+  <div class="card-body bg-light">
+    <form method="get" action="{{ url_for('admin_co_requests') }}" class="row g-2 align-items-end">
+      <div class="col-12 col-md-4">
+        <label class="form-label small">Поиск (имя, компания, описание)</label>
+        <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}" placeholder="Текст для поиска...">
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label small">Статус</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Все статусы</option>
+          <option value="new" {% if status_filter == "new" %}selected{% endif %}>Новые</option>
+          <option value="in_progress" {% if status_filter == "in_progress" %}selected{% endif %}>В работе</option>
+          <option value="completed" {% if status_filter == "completed" %}selected{% endif %}>Завершены</option>
+          <option value="rejected" {% if status_filter == "rejected" %}selected{% endif %}>Отклонены</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label small">Сортировка</label>
+        <select name="sort" class="form-select form-select-sm">
+          <option value="newest" {% if sort == "newest" %}selected{% endif %}>Сначала новые</option>
+          <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Сначала старые</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100">Применить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not reqs %}
+<div class="alert alert-info">
+  Запросы КП не найдены.
+</div>
+{% else %}
+<div class="row g-3">
+  {% for r in reqs %}
+  <div class="col-12">
+    <div class="card shadow-sm border-0 {% if r.status == 'new' %}border-start border-primary border-4{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <h5 class="card-title mb-1">
+              {{ r.name }} <span class="text-secondary fs-6 fw-normal">({{ r.company }})</span>
+            </h5>
+            <div class="text-muted small">
+              {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}
+              {% if r.user_id %}
+                <span class="badge bg-secondary ms-2">Зарегистрированный клиент</span>
+              {% endif %}
+            </div>
+          </div>
+          <div>
+            {% if r.status == 'new' %}<span class="badge bg-primary">Новый</span>{% endif %}
+            {% if r.status == 'in_progress' %}<span class="badge bg-warning text-dark">В работе</span>{% endif %}
+            {% if r.status == 'completed' %}<span class="badge bg-success">Завершен</span>{% endif %}
+            {% if r.status == 'rejected' %}<span class="badge bg-danger">Отклонен</span>{% endif %}
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-4 mb-3 mb-md-0">
+            <div class="small fw-bold text-muted mb-1">Контакты:</div>
+            <div><a href="mailto:{{ r.email }}" class="text-decoration-none">{{ r.email }}</a></div>
+            <div><a href="tel:{{ r.phone }}" class="text-decoration-none">{{ r.phone }}</a></div>
+            {% if r.telegram %}<div>Telegram: {{ r.telegram }}</div>{% endif %}
+            {% if r.whatsapp %}<div>WhatsApp: {{ r.whatsapp }}</div>{% endif %}
+          </div>
+          <div class="col-md-8">
+            <div class="small fw-bold text-muted mb-1">Цель: {{ r.purpose }}</div>
+            <div class="bg-light p-2 rounded small">{{ r.object_description | replace('\n', '<br>') | safe }}</div>
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="row align-items-center">
+          <div class="col-md-6 mb-3 mb-md-0">
+            <form method="post" action="{{ url_for('admin_co_request_notes', req_id=r.id) }}" class="d-flex gap-2">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <input type="text" name="staff_notes" class="form-control form-control-sm" placeholder="Служебные заметки..." value="{{ r.staff_notes }}">
+              <button type="submit" class="btn btn-outline-secondary btn-sm">Сохранить</button>
+            </form>
+          </div>
+          <div class="col-md-6 text-md-end">
+            <form method="post" action="{{ url_for('admin_co_request_status', req_id=r.id) }}" class="d-inline-block">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <select name="status" class="form-select form-select-sm d-inline-block w-auto" onchange="this.form.submit()">
+                <option value="new" {% if r.status == 'new' %}selected{% endif %}>Новый</option>
+                <option value="in_progress" {% if r.status == 'in_progress' %}selected{% endif %}>В работе</option>
+                <option value="completed" {% if r.status == 'completed' %}selected{% endif %}>Завершен</option>
+                <option value="rejected" {% if r.status == 'rejected' %}selected{% endif %}>Отклонен</option>
+              </select>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if total_pages > 1 %}
+<nav class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% for p in range(1, total_pages + 1) %}
+      <li class="page-item {% if p == page %}active{% endif %}">
+        <a class="page-link" href="{{ url_for('admin_co_requests', page=p, q=q, status=status_filter, sort=sort) }}">{{ p }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+{% endif %}
+{% endblock %}

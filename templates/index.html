@@ -40,6 +40,7 @@
         </a>
       {% endif %}
       <div class="d-flex ms-lg-3 gap-2 mt-2 mt-lg-0">
+        <a class="btn btn-primary btn-sm" href="{{ url_for('commercial_offer_get') }}">Запросить КП</a>
         {% if client_user %}
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('cabinet') }}">Кабинет</a>
           <form method="post" action="{{ url_for('logout', next=request.path) }}">
