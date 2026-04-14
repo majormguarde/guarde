@@ -46,7 +46,7 @@
             <div class="row g-3 mb-4">
               <div class="col-12 col-md-6">
                 <label class="form-label">Ваше имя <span class="text-danger">*</span></label>
-                <input class="form-control form-control-lg" name="name" autocomplete="name" required value="{{ current_client().username if current_client() else '' }}">
+                <input class="form-control form-control-lg" name="name" autocomplete="name" required value="{{ client_user.username if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6 co-honeypot" hidden>
                 <label class="form-label">*****</label>
@@ -54,7 +54,7 @@
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Компания / Организация <span class="text-danger">*</span></label>
-                <input class="form-control form-control-lg" name="company" autocomplete="organization" required value="{{ current_client().company if current_client() else '' }}">
+                <input class="form-control form-control-lg" name="company" autocomplete="organization" required value="{{ client_user.company if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Email для связи <span class="text-danger">*</span></label>
@@ -62,15 +62,15 @@
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Контактный телефон <span class="text-danger">*</span></label>
-                <input class="form-control form-control-lg" name="phone" autocomplete="tel" required value="{{ current_client().phone if current_client() else '' }}">
+                <input class="form-control form-control-lg" name="phone" autocomplete="tel" required value="{{ client_user.phone if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Telegram (опционально)</label>
-                <input class="form-control form-control-lg" name="telegram" autocomplete="off" placeholder="@username" value="{{ current_client().telegram if current_client() else '' }}">
+                <input class="form-control form-control-lg" name="telegram" autocomplete="off" placeholder="@username" value="{{ client_user.telegram if client_user else '' }}">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">WhatsApp (опционально)</label>
-                <input class="form-control form-control-lg" name="whatsapp" autocomplete="off" placeholder="номер" value="{{ current_client().whatsapp if current_client() else '' }}">
+                <input class="form-control form-control-lg" name="whatsapp" autocomplete="off" placeholder="номер" value="{{ client_user.whatsapp if client_user else '' }}">
               </div>
             </div>
 
